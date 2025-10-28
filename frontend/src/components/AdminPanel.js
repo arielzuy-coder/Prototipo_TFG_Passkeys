@@ -1,0 +1,432 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
+
+function AdminPanel() {
+  const [policies, setPolicies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  const [showForm, setShowForm] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState(null);
+  const navigate = useNavigate();
+
+  // Formulario
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    min_risk_score: '',
+    max_risk_score: '',
+    action: 'allow',
+    priority: 1,
+    enabled: true
+  });
+
+  useEffect(() => {
+    loadPolicies();
+  }, []);
+
+  const loadPolicies = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get('/admin/policies');
+      setPolicies(data.policies);
+    } catch (error) {
+      console.error('Error loading policies:', error);
+      setMessage({ type: 'error', text: 'Error al cargar políticas' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = () => {
+    setEditingPolicy(null);
+    setFormData({
+      name: '',
+      description: '',
+      min_risk_score: '',
+      max_risk_score: '',
+      action: 'allow',
+      priority: policies.length + 1,
+      enabled: true
+    });
+    setShowForm(true);
+    setMessage({ type: '', text: '' });
+  };
+
+  const handleEdit = (policy) => {
+    setEditingPolicy(policy);
+    setFormData({
+      name: policy.name,
+      description: policy.description,
+      min_risk_score: policy.conditions.min_risk_score || '',
+      max_risk_score: policy.conditions.max_risk_score || '',
+      action: policy.action,
+      priority: policy.priority,
+      enabled: policy.enabled
+    });
+    setShowForm(true);
+    setMessage({ type: '', text: '' });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const conditions = {};
+      if (formData.min_risk_score !== '') {
+        conditions.min_risk_score = parseInt(formData.min_risk_score);
+      }
+      if (formData.max_risk_score !== '') {
+        conditions.max_risk_score = parseInt(formData.max_risk_score);
+      }
+
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        conditions: conditions,
+        action: formData.action,
+        priority: parseInt(formData.priority),
+        enabled: formData.enabled
+      };
+
+      if (editingPolicy) {
+        // Update
+        await api.put(`/admin/policies/${editingPolicy.id}`, payload);
+        setMessage({ type: 'success', text: 'Política actualizada exitosamente' });
+      } else {
+        // Create
+        await api.post('/admin/policies', payload);
+        setMessage({ type: 'success', text: 'Política creada exitosamente' });
+      }
+
+      setShowForm(false);
+      loadPolicies();
+    } catch (error) {
+      console.error('Error saving policy:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.detail || 'Error al guardar política' 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (policy) => {
+    if (!window.confirm(`¿Eliminar la política "${policy.name}"?`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/admin/policies/${policy.id}`);
+      setMessage({ type: 'success', text: 'Política eliminada exitosamente' });
+      loadPolicies();
+    } catch (error) {
+      console.error('Error deleting policy:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.detail || 'Error al eliminar política' 
+      });
+    }
+  };
+
+  const handleToggle = async (policy) => {
+    try {
+      await api.put(`/admin/policies/${policy.id}/toggle`);
+      setMessage({ 
+        type: 'success', 
+        text: `Política ${policy.enabled ? 'desactivada' : 'activada'} exitosamente` 
+      });
+      loadPolicies();
+    } catch (error) {
+      console.error('Error toggling policy:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.detail || 'Error al cambiar estado' 
+      });
+    }
+  };
+
+  const getActionBadge = (action) => {
+    const badges = {
+      allow: { class: 'badge-success', text: '✓ Permitir' },
+      stepup: { class: 'badge-warning', text: '⚠ Step-up' },
+      deny: { class: 'badge-danger', text: '✗ Denegar' }
+    };
+    return badges[action] || badges.allow;
+  };
+
+  if (showForm) {
+    return (
+      <div className="admin-container">
+        <div className="admin-card">
+          <div className="admin-header">
+            <h2>{editingPolicy ? '✏️ Editar Política' : '➕ Nueva Política'}</h2>
+            <button 
+              className="btn-secondary" 
+              onClick={() => setShowForm(false)}
+            >
+              ← Volver
+            </button>
+          </div>
+
+          {message.text && (
+            <div className={`message ${message.type}`}>
+              {message.text}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="policy-form">
+            <div className="form-group">
+              <label>Nombre de la política *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                placeholder="ej: nueva_politica_riesgo_medio"
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Descripción *</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                placeholder="Describe cuándo se aplica esta política"
+                rows="3"
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Riesgo mínimo</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.min_risk_score}
+                  onChange={(e) => setFormData({...formData, min_risk_score: e.target.value})}
+                  placeholder="0-100"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Riesgo máximo</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.max_risk_score}
+                  onChange={(e) => setFormData({...formData, max_risk_score: e.target.value})}
+                  placeholder="0-100"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Acción *</label>
+                <select
+                  value={formData.action}
+                  onChange={(e) => setFormData({...formData, action: e.target.value})}
+                  required
+                  disabled={loading}
+                >
+                  <option value="allow">✓ Permitir acceso</option>
+                  <option value="stepup">⚠ Requerir step-up</option>
+                  <option value="deny">✗ Denegar acceso</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Prioridad *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.priority}
+                  onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                  required
+                  disabled={loading}
+                />
+                <small>Mayor prioridad = número menor</small>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={formData.enabled}
+                  onChange={(e) => setFormData({...formData, enabled: e.target.checked})}
+                  disabled={loading}
+                />
+                <span>Política activa</span>
+              </label>
+            </div>
+
+            <div className="form-actions">
+              <button 
+                type="submit" 
+                className="btn-primary"
+                disabled={loading}
+              >
+                {loading ? 'Guardando...' : (editingPolicy ? 'Actualizar' : 'Crear Política')}
+              </button>
+              <button 
+                type="button" 
+                className="btn-secondary"
+                onClick={() => setShowForm(false)}
+                disabled={loading}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-container">
+      <div className="admin-card">
+        <div className="admin-header">
+          <div>
+            <h2>⚙️ Panel de Administración</h2>
+            <p className="subtitle">Gestión de políticas de acceso y seguridad</p>
+          </div>
+          <button 
+            className="btn-primary" 
+            onClick={handleCreate}
+          >
+            ➕ Nueva Política
+          </button>
+        </div>
+
+        {message.text && (
+          <div className={`message ${message.type}`}>
+            {message.text}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="loading-container">
+            <div className="spinner"></div>
+            <p>Cargando políticas...</p>
+          </div>
+        ) : (
+          <>
+            <div className="policies-stats">
+              <div className="stat-card">
+                <span className="stat-number">{policies.length}</span>
+                <span className="stat-label">Políticas totales</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-number">
+                  {policies.filter(p => p.enabled).length}
+                </span>
+                <span className="stat-label">Activas</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-number">
+                  {policies.filter(p => !p.enabled).length}
+                </span>
+                <span className="stat-label">Inactivas</span>
+              </div>
+            </div>
+
+            <div className="policies-table-container">
+              <table className="policies-table">
+                <thead>
+                  <tr>
+                    <th>Estado</th>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Condiciones</th>
+                    <th>Acción</th>
+                    <th>Prioridad</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {policies.map(policy => (
+                    <tr key={policy.id} className={!policy.enabled ? 'disabled-row' : ''}>
+                      <td>
+                        <button
+                          className={`toggle-btn ${policy.enabled ? 'active' : 'inactive'}`}
+                          onClick={() => handleToggle(policy)}
+                          title={policy.enabled ? 'Desactivar' : 'Activar'}
+                        >
+                          {policy.enabled ? '●' : '○'}
+                        </button>
+                      </td>
+                      <td className="policy-name">{policy.name}</td>
+                      <td className="policy-description">{policy.description}</td>
+                      <td className="policy-conditions">
+                        {policy.conditions.min_risk_score !== undefined && (
+                          <span>Min: {policy.conditions.min_risk_score}</span>
+                        )}
+                        {policy.conditions.max_risk_score !== undefined && (
+                          <span>Max: {policy.conditions.max_risk_score}</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${getActionBadge(policy.action).class}`}>
+                          {getActionBadge(policy.action).text}
+                        </span>
+                      </td>
+                      <td className="policy-priority">{policy.priority}</td>
+                      <td className="policy-actions">
+                        <button
+                          className="btn-icon btn-edit"
+                          onClick={() => handleEdit(policy)}
+                          title="Editar"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          className="btn-icon btn-delete"
+                          onClick={() => handleDelete(policy)}
+                          title="Eliminar"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {policies.length === 0 && (
+              <div className="empty-state">
+                <p>No hay políticas configuradas</p>
+                <button className="btn-primary" onClick={handleCreate}>
+                  Crear primera política
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="admin-footer">
+          <button 
+            className="btn-secondary" 
+            onClick={() => navigate('/dashboard')}
+          >
+            ← Volver al Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default AdminPanel;
