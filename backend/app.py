@@ -9,6 +9,7 @@ import logging
 import secrets
 import random
 from pydantic import BaseModel
+import user_agents
 
 from config import settings
 from models import Base, User, Passkey, Device, Session as DBSession, AuditEvent, Policy, RiskEvaluation
@@ -57,6 +58,7 @@ app.add_middleware(
 # Database
 engine = create_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 # Dependency para obtener DB session
 def get_db():
     db = SessionLocal()
@@ -216,6 +218,7 @@ async def register_complete(
             expected_rp_id=settings.RP_ID
         )
         
+        # Crear Passkey
         passkey = Passkey(
             user_id=user.id,
             credential_id=verified_credential['credential_id'],
@@ -230,6 +233,41 @@ async def register_complete(
         db.add(passkey)
         db.commit()
         
+        # NUEVO: Crear Device asociado
+        ua = user_agents.parse(request.headers.get('user-agent', ''))
+        user_agent_str = request.headers.get('user-agent', '')
+        
+        # Usar la misma fórmula de fingerprint que risk_engine.py
+        device_fingerprint = f"{ua.browser.family}_{ua.os.family}_{user_agent_str[:50]}"
+        
+        # Verificar si el dispositivo ya existe
+        existing_device = db.query(Device).filter(
+            Device.device_fingerprint == device_fingerprint
+        ).first()
+        
+        if not existing_device:
+            # Crear nuevo dispositivo
+            device = Device(
+                user_id=user.id,
+                device_fingerprint=device_fingerprint,
+                device_name=device_name or "Dispositivo sin nombre",
+                os=ua.os.family,
+                browser=ua.browser.family,
+                trust_level=50,
+                last_seen_ip=request.client.host,
+                last_seen_location=f"IP: {request.client.host}"
+            )
+            db.add(device)
+            db.commit()
+            logger.info(f"Device created for user {email}: {device_fingerprint}")
+        else:
+            # Actualizar dispositivo existente
+            existing_device.last_seen_at = datetime.utcnow()
+            existing_device.last_seen_ip = request.client.host
+            db.commit()
+            logger.info(f"Device updated for user {email}: {device_fingerprint}")
+        
+        # Auditoría
         audit = AuditEvent(
             user_id=user.id,
             event_type="passkey_enrolled",
@@ -255,6 +293,7 @@ async def register_complete(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error al verificar credencial: {str(e)}"
         )
+
 # ============================================
 # ENDPOINTS DE AUTENTICACIÓN
 # ============================================
@@ -1209,3 +1248,4 @@ async def global_exception_handler(request: Request, exc: Exception):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+EOF

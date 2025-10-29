@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from sqlalchemy.orm import Session as DBSession
 from models import User, Device, AuditEvent
 import user_agents
@@ -82,7 +82,8 @@ class RiskEngine:
     ) -> Dict[str, Any]:
         """Evalúa el riesgo basado en el dispositivo."""
         
-        device_fingerprint = f"{context['browser']}_{context['os']}_{context['ip_address']}"
+        # CAMBIO: Usar user_agent en lugar de ip_address para el fingerprint
+        device_fingerprint = f"{context['browser']}_{context['os']}_{context['user_agent'][:50]}"
         
         known_device = db.query(Device).filter(
             Device.device_fingerprint == device_fingerprint
@@ -248,5 +249,3 @@ class RiskEngine:
             return 'Red Local'
         
         return f"IP: {ip_address}"
-
-from datetime import timedelta
