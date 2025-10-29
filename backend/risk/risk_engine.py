@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session as DBSession
 from models import User, Device, AuditEvent
 import user_agents
 from decimal import Decimal
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RiskEngine:
     def __init__(self):
@@ -82,20 +85,25 @@ class RiskEngine:
     ) -> Dict[str, Any]:
         """Evalúa el riesgo basado en el dispositivo."""
         
-        # CAMBIO: Usar user_agent en lugar de ip_address para el fingerprint
+        # Generar fingerprint usando user_agent en lugar de ip_address
         device_fingerprint = f"{context['browser']}_{context['os']}_{context['user_agent'][:50]}"
+        
+        # LOG DE DEBUG: Ver qué fingerprint está buscando
+        logger.info(f"[RISK ENGINE] Buscando device_fingerprint: {device_fingerprint}")
         
         known_device = db.query(Device).filter(
             Device.device_fingerprint == device_fingerprint
         ).first()
         
         if known_device:
+            logger.info(f"[RISK ENGINE] ✅ Dispositivo encontrado: {known_device.device_name}")
             return {
                 'score': 0,
                 'known': True,
                 'message': f"Dispositivo conocido: {known_device.device_name}"
             }
         else:
+            logger.info(f"[RISK ENGINE] ❌ Dispositivo NO encontrado en BD")
             return {
                 'score': 40,
                 'known': False,
@@ -249,3 +257,4 @@ class RiskEngine:
             return 'Red Local'
         
         return f"IP: {ip_address}"
+EOF
