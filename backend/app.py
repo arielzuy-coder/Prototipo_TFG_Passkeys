@@ -727,7 +727,7 @@ async def stepup_verify(
             Device.device_fingerprint == device_fingerprint_login
         ).first()
         
-	if existing_device:
+        if existing_device:
             existing_device.last_seen_at = datetime.utcnow()
             existing_device.last_seen_ip = session_data['ip_address']
             existing_device.last_seen_location = session_data.get('location')
