@@ -724,15 +724,15 @@ async def stepup_verify(
         logger.info(f"[STEPUP] Buscando device con fingerprint: {device_fingerprint_login} y user_id: {user.id}")
         
         existing_device = db.query(Device).filter(
-            Device.device_fingerprint == device_fingerprint_login
+            Device.device_fingerprint == device_fingerprint_login,
+            Device.user_id == user.id
         ).first()
         
         if existing_device:
             existing_device.last_seen_at = datetime.utcnow()
             existing_device.last_seen_ip = session_data['ip_address']
             existing_device.last_seen_location = session_data.get('location')
-            existing_device.user_id = user.id
-	    db.commit()
+            db.commit()
             logger.info(f"Device updated after step-up for user {user.email}: {device_fingerprint_login}")
         else:
             logger.info(f"[STEPUP] ❌ Device NO encontrado para user {user.email} con fingerprint: {device_fingerprint_login}")
