@@ -721,6 +721,8 @@ async def stepup_verify(
         ua_login = user_agents.parse(session_data['user_agent'])
         device_fingerprint_login = f"{ua_login.browser.family}_{ua_login.os.family}_{session_data['user_agent'][:50]}"
         
+        logger.info(f"[STEPUP] Buscando device con fingerprint: {device_fingerprint_login} y user_id: {user.id}")
+        
         existing_device = db.query(Device).filter(
             Device.device_fingerprint == device_fingerprint_login,
             Device.user_id == user.id
@@ -732,6 +734,8 @@ async def stepup_verify(
             existing_device.last_seen_location = session_data.get('location')
             db.commit()
             logger.info(f"Device updated after step-up for user {user.email}: {device_fingerprint_login}")
+        else:
+            logger.info(f"[STEPUP] ❌ Device NO encontrado para user {user.email} con fingerprint: {device_fingerprint_login}")
         
         # Registrar éxito de step-up
         audit = AuditEvent(
