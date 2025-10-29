@@ -2,7 +2,8 @@
 Script de inicialización de base de datos para producción en Render
 """
 from sqlalchemy import create_engine, text
-from models import Base
+from sqlalchemy.orm import sessionmaker
+from models import Base, Policy
 from config import settings
 import logging
 
@@ -19,38 +20,69 @@ def init_database():
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Tablas creadas exitosamente")
         
-        # Verificar si ya existen políticas
-        with engine.connect() as conn:
-            result = conn.execute(text("SELECT COUNT(*) FROM policies"))
-            count = result.scalar()
+        # Crear sesión
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        try:
+            # Verificar si ya existen políticas
+            count = session.query(Policy).count()
             
             if count == 0:
                 logger.info("Insertando políticas por defecto...")
                 
-                # Insertar políticas por defecto
-                policies_sql = """
-                INSERT INTO policies (name, description, conditions, action, priority, enabled, created_at, updated_at)
-                VALUES 
-                    ('high_risk_deny', 'Denegar acceso cuando riesgo es alto', 
-                     '{"min_risk_score": 75}', 'deny', 1, true, NOW(), NOW()),
-                    
-                    ('medium_risk_stepup', 'Requerir verificación adicional para riesgo medio', 
-                     '{"min_risk_score": 40, "max_risk_score": 74}', 'stepup', 2, true, NOW(), NOW()),
-                    
-                    ('new_device_stepup', 'Verificar dispositivos nuevos o desconocidos', 
-                     '{"new_device": true}', 'stepup', 3, true, NOW(), NOW()),
-                    
-                    ('unusual_location_stepup', 'Verificar accesos desde ubicaciones inusuales', 
-                     '{"unusual_location": true}', 'stepup', 4, true, NOW(), NOW()),
-                    
-                    ('low_risk_allow', 'Permitir acceso directo para riesgo bajo', 
-                     '{"max_risk_score": 39}', 'allow', 5, true, NOW(), NOW());
-                """
-                conn.execute(text(policies_sql))
-                conn.commit()
+                # Crear políticas usando ORM
+                policies = [
+                    Policy(
+                        name='high_risk_deny',
+                        description='Denegar acceso cuando riesgo es alto',
+                        conditions={'min_risk_score': 75},
+                        action='deny',
+                        priority=1,
+                        enabled=True
+                    ),
+                    Policy(
+                        name='medium_risk_stepup',
+                        description='Requerir verificación adicional para riesgo medio',
+                        conditions={'min_risk_score': 40, 'max_risk_score': 74},
+                        action='stepup',
+                        priority=2,
+                        enabled=True
+                    ),
+                    Policy(
+                        name='new_device_stepup',
+                        description='Verificar dispositivos nuevos o desconocidos',
+                        conditions={'new_device': True},
+                        action='stepup',
+                        priority=3,
+                        enabled=True
+                    ),
+                    Policy(
+                        name='unusual_location_stepup',
+                        description='Verificar accesos desde ubicaciones inusuales',
+                        conditions={'unusual_location': True},
+                        action='stepup',
+                        priority=4,
+                        enabled=True
+                    ),
+                    Policy(
+                        name='low_risk_allow',
+                        description='Permitir acceso directo para riesgo bajo',
+                        conditions={'max_risk_score': 39},
+                        action='allow',
+                        priority=5,
+                        enabled=True
+                    )
+                ]
+                
+                session.add_all(policies)
+                session.commit()
                 logger.info("✅ Políticas por defecto insertadas")
             else:
                 logger.info(f"Base de datos ya tiene {count} políticas, omitiendo inserción")
+        
+        finally:
+            session.close()
         
         logger.info("✅ Base de datos inicializada correctamente")
         
