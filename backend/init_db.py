@@ -29,21 +29,21 @@ def init_database():
                 
                 # Insertar políticas por defecto
                 policies_sql = """
-                INSERT INTO policies (id, name, description, conditions, action, priority, enabled, created_at, updated_at)
+                INSERT INTO policies (name, description, conditions, action, priority, enabled, created_at, updated_at)
                 VALUES 
-                    (DEFAULT, 'high_risk_deny', 'Denegar acceso cuando riesgo es alto', 
+                    ('high_risk_deny', 'Denegar acceso cuando riesgo es alto', 
                      '{"min_risk_score": 75}', 'deny', 1, true, NOW(), NOW()),
                     
-                    (DEFAULT, 'medium_risk_stepup', 'Requerir verificación adicional para riesgo medio', 
+                    ('medium_risk_stepup', 'Requerir verificación adicional para riesgo medio', 
                      '{"min_risk_score": 40, "max_risk_score": 74}', 'stepup', 2, true, NOW(), NOW()),
                     
-                    (DEFAULT, 'new_device_stepup', 'Verificar dispositivos nuevos o desconocidos', 
+                    ('new_device_stepup', 'Verificar dispositivos nuevos o desconocidos', 
                      '{"new_device": true}', 'stepup', 3, true, NOW(), NOW()),
                     
-                    (DEFAULT, 'unusual_location_stepup', 'Verificar accesos desde ubicaciones inusuales', 
+                    ('unusual_location_stepup', 'Verificar accesos desde ubicaciones inusuales', 
                      '{"unusual_location": true}', 'stepup', 4, true, NOW(), NOW()),
                     
-                    (DEFAULT, 'low_risk_allow', 'Permitir acceso directo para riesgo bajo', 
+                    ('low_risk_allow', 'Permitir acceso directo para riesgo bajo', 
                      '{"max_risk_score": 39}', 'allow', 5, true, NOW(), NOW());
                 """
                 conn.execute(text(policies_sql))
