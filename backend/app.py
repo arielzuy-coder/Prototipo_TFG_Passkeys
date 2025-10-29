@@ -724,8 +724,7 @@ async def stepup_verify(
         logger.info(f"[STEPUP] Buscando device con fingerprint: {device_fingerprint_login} y user_id: {user.id}")
         
         existing_device = db.query(Device).filter(
-            Device.device_fingerprint == device_fingerprint_login,
-            Device.user_id == user.id
+            Device.device_fingerprint == device_fingerprint_login
         ).first()
         
         if existing_device:
