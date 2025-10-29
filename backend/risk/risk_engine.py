@@ -257,4 +257,3 @@ class RiskEngine:
             return 'Red Local'
         
         return f"IP: {ip_address}"
-EOF
