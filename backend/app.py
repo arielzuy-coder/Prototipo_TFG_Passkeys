@@ -764,7 +764,18 @@ async def stepup_verify(
         del stepup_tokens[stepup_token]
         
         logger.info(f"Step-up verification successful for user {user.email}")
-        
+        # Registrar autenticación exitosa
+        audit_success = AuditEvent(
+            user_id=user.id,
+            session_id=session.id,
+            event_type="authentication_success",
+            ip_address=session_data['ip_address'],
+            user_agent=session_data['user_agent'],
+            location=session_data.get('location'),
+            risk_score=session_data['risk_score']
+        )
+        db.add(audit_success)
+        db.commit()
         return {
             "success": True,
             "message": "Verificación adicional exitosa",
