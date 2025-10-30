@@ -766,13 +766,15 @@ async def stepup_verify(
         logger.info(f"Step-up verification successful for user {user.email}")
         # Registrar autenticación exitosa
         audit_success = AuditEvent(
-            user_id=user.id,
+             user_id=user.id,
             session_id=session.id,
             event_type="authentication_success",
+            event_data={
+                "location": session_data.get('location'),
+                "risk_score": float(session_data['risk_score'])
+            },
             ip_address=session_data['ip_address'],
-            user_agent=session_data['user_agent'],
-            location=session_data.get('location'),
-            risk_score=session_data['risk_score']
+            user_agent=session_data['user_agent']
         )
         db.add(audit_success)
         db.commit()
