@@ -30,6 +30,10 @@ class RiskEngine:
     ) -> Dict[str, Any]:
         """Evalúa el riesgo contextual de un intento de autenticación."""
         
+        logger.info(f"[RISK ENGINE] ===== INICIO EVALUACIÓN DE RIESGO =====")
+        logger.info(f"[RISK ENGINE] Usuario: {user.email} (ID: {user.id})")
+        logger.info(f"[RISK ENGINE] IP: {ip_address}")
+        
         context = self._build_context(user, ip_address, user_agent, db)
         
         factors = {
@@ -40,12 +44,24 @@ class RiskEngine:
             'velocity': self._evaluate_velocity_risk(user, db)
         }
         
+        # LOG: Mostrar scores de cada factor
+        logger.info(f"[RISK ENGINE] --- SCORES POR FACTOR ---")
+        for factor_name, factor_data in factors.items():
+            weighted_score = factor_data['score'] * self.weights[factor_name]
+            logger.info(f"[RISK ENGINE] {factor_name}: {factor_data['score']} pts (peso {self.weights[factor_name]}) = {weighted_score:.2f} pts ponderados")
+            logger.info(f"[RISK ENGINE]   └─ {factor_data['message']}")
+        
         total_score = sum(
             factors[factor]['score'] * self.weights[factor]
             for factor in factors
         )
         
         risk_level = self._calculate_risk_level(total_score)
+        
+        logger.info(f"[RISK ENGINE] --- RESULTADO FINAL ---")
+        logger.info(f"[RISK ENGINE] Score Total: {total_score:.2f}/100")
+        logger.info(f"[RISK ENGINE] Nivel de Riesgo: {risk_level.upper()}")
+        logger.info(f"[RISK ENGINE] ===== FIN EVALUACIÓN =====")
         
         return {
             'score': Decimal(str(round(total_score, 2))),
@@ -118,15 +134,21 @@ class RiskEngine:
     ) -> Dict[str, Any]:
         """Evalúa el riesgo basado en la ubicación geográfica."""
         
+        logger.info(f"[RISK ENGINE] Evaluando riesgo de ubicación...")
+        logger.info(f"[RISK ENGINE] Ubicación actual: {context.get('location', 'Unknown')}")
+        
         recent_locations = db.query(Device.last_seen_location).filter(
             Device.user_id == user.id
         ).distinct().all()
         
         recent_locations = [loc[0] for loc in recent_locations if loc[0]]
         
+        logger.info(f"[RISK ENGINE] Ubicaciones conocidas del usuario ({len(recent_locations)}): {recent_locations}")
+        
         current_location = context.get('location', 'Unknown')
         
         if not recent_locations:
+            logger.info(f"[RISK ENGINE] ⚠️ No hay ubicaciones conocidas - Primera vez")
             return {
                 'score': 20,
                 'known': False,
@@ -134,12 +156,15 @@ class RiskEngine:
             }
         
         if current_location in recent_locations:
+            logger.info(f"[RISK ENGINE] ✅ Ubicación CONOCIDA: {current_location}")
             return {
                 'score': 0,
                 'known': True,
                 'message': f"Ubicación conocida: {current_location}"
             }
         else:
+            logger.info(f"[RISK ENGINE] ❌ Ubicación NUEVA: {current_location}")
+            logger.info(f"[RISK ENGINE] No coincide con ninguna de: {recent_locations}")
             return {
                 'score': 35,
                 'known': False,
