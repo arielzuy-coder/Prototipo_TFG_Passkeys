@@ -2,6 +2,9 @@ from typing import Dict, Any, List
 from sqlalchemy.orm import Session as DBSession
 from models import User, Policy
 from decimal import Decimal
+import logging
+
+logger = logging.getLogger(__name__)
 
 class PolicyEngine:
     def __init__(self):
@@ -38,24 +41,44 @@ class PolicyEngine:
     ) -> Dict[str, Any]:
         """Evalúa las políticas aplicables y retorna la acción a tomar."""
         
+        logger.info(f"[POLICY ENGINE] ===== EVALUANDO POLÍTICAS =====")
+        logger.info(f"[POLICY ENGINE] Usuario: {user.email}")
+        logger.info(f"[POLICY ENGINE] Risk Score: {risk_score}")
+        
         policies = db.query(Policy).filter(
             Policy.enabled == True
         ).order_by(Policy.priority.asc()).all()
         
+        logger.info(f"[POLICY ENGINE] Total de políticas activas: {len(policies)}")
+        
         if not policies:
+            logger.info(f"[POLICY ENGINE] No hay políticas, creando políticas por defecto...")
             policies = self._create_default_policies(db)
         
         risk_score_float = float(risk_score)
         
         for policy in policies:
+            logger.info(f"[POLICY ENGINE] --- Evaluando Política ---")
+            logger.info(f"[POLICY ENGINE] Nombre: {policy.name}")
+            logger.info(f"[POLICY ENGINE] Prioridad: {policy.priority}")
+            logger.info(f"[POLICY ENGINE] Condiciones: {policy.conditions}")
+            logger.info(f"[POLICY ENGINE] Acción: {policy.action}")
+            
             if self._policy_matches(policy, risk_score_float, context):
+                logger.info(f"[POLICY ENGINE] ✅ MATCH! Aplicando política: {policy.name}")
+                logger.info(f"[POLICY ENGINE] Acción decidida: {policy.action}")
+                logger.info(f"[POLICY ENGINE] ===== FIN EVALUACIÓN POLÍTICAS =====")
                 return {
                     'action': policy.action,
                     'policy_name': policy.name,
                     'policy_description': policy.description,
                     'matched': True
                 }
+            else:
+                logger.info(f"[POLICY ENGINE] ❌ NO MATCH - Continuando con siguiente política...")
         
+        logger.info(f"[POLICY ENGINE] ⚠️ Ninguna política matcheó - Usando política por defecto (allow)")
+        logger.info(f"[POLICY ENGINE] ===== FIN EVALUACIÓN POLÍTICAS =====")
         return {
             'action': 'allow',
             'policy_name': 'default',
@@ -73,26 +96,49 @@ class PolicyEngine:
         
         conditions = policy.conditions
         
+        logger.info(f"[POLICY ENGINE]   Verificando condición min_risk_score...")
         if 'min_risk_score' in conditions:
-            if risk_score < conditions['min_risk_score']:
+            min_score = conditions['min_risk_score']
+            if risk_score < min_score:
+                logger.info(f"[POLICY ENGINE]   ❌ Score {risk_score} < {min_score} - NO cumple")
                 return False
+            logger.info(f"[POLICY ENGINE]   ✅ Score {risk_score} >= {min_score} - Cumple")
         
+        logger.info(f"[POLICY ENGINE]   Verificando condición max_risk_score...")
         if 'max_risk_score' in conditions:
-            if risk_score > conditions['max_risk_score']:
+            max_score = conditions['max_risk_score']
+            if risk_score > max_score:
+                logger.info(f"[POLICY ENGINE]   ❌ Score {risk_score} > {max_score} - NO cumple")
                 return False
+            logger.info(f"[POLICY ENGINE]   ✅ Score {risk_score} <= {max_score} - Cumple")
         
         if 'required_location' in conditions:
-            if context.get('location') != conditions['required_location']:
+            required = conditions['required_location']
+            actual = context.get('location')
+            logger.info(f"[POLICY ENGINE]   Verificando ubicación requerida: {required} vs actual: {actual}")
+            if actual != required:
+                logger.info(f"[POLICY ENGINE]   ❌ Ubicación no coincide - NO cumple")
                 return False
+            logger.info(f"[POLICY ENGINE]   ✅ Ubicación coincide - Cumple")
         
         if 'allowed_devices' in conditions:
-            if context.get('device_type') not in conditions['allowed_devices']:
+            allowed = conditions['allowed_devices']
+            device = context.get('device_type')
+            logger.info(f"[POLICY ENGINE]   Verificando dispositivo permitido: {device} en {allowed}")
+            if device not in allowed:
+                logger.info(f"[POLICY ENGINE]   ❌ Dispositivo no permitido - NO cumple")
                 return False
+            logger.info(f"[POLICY ENGINE]   ✅ Dispositivo permitido - Cumple")
         
         if 'business_hours_only' in conditions and conditions['business_hours_only']:
-            if not context.get('is_business_hours', False):
+            is_business_hours = context.get('is_business_hours', False)
+            logger.info(f"[POLICY ENGINE]   Verificando horario laboral requerido: {is_business_hours}")
+            if not is_business_hours:
+                logger.info(f"[POLICY ENGINE]   ❌ Fuera de horario laboral - NO cumple")
                 return False
+            logger.info(f"[POLICY ENGINE]   ✅ En horario laboral - Cumple")
         
+        logger.info(f"[POLICY ENGINE]   ✅ TODAS las condiciones cumplen - MATCH!")
         return True
     
     def _create_default_policies(self, db: DBSession) -> List[Policy]:
