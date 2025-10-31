@@ -16,6 +16,7 @@ function AdminPanel() {
     description: '',
     min_risk_score: '',
     max_risk_score: '',
+    customConditions: '', // NUEVO: Para condiciones JSON personalizadas
     action: 'allow',
     priority: 1,
     enabled: true
@@ -45,6 +46,7 @@ function AdminPanel() {
       description: '',
       min_risk_score: '',
       max_risk_score: '',
+      customConditions: '', // NUEVO
       action: 'allow',
       priority: policies.length + 1,
       enabled: true
@@ -55,11 +57,21 @@ function AdminPanel() {
 
   const handleEdit = (policy) => {
     setEditingPolicy(policy);
+    
+    // Extraer condiciones conocidas
+    const { min_risk_score, max_risk_score, ...otherConditions } = policy.conditions || {};
+    
+    // Si hay condiciones adicionales, convertirlas a JSON
+    const customConditionsStr = Object.keys(otherConditions).length > 0 
+      ? JSON.stringify(otherConditions, null, 2) 
+      : '';
+    
     setFormData({
       name: policy.name,
       description: policy.description,
-      min_risk_score: policy.conditions.min_risk_score || '',
-      max_risk_score: policy.conditions.max_risk_score || '',
+      min_risk_score: min_risk_score || '',
+      max_risk_score: max_risk_score || '',
+      customConditions: customConditionsStr, // NUEVO
       action: policy.action,
       priority: policy.priority,
       enabled: policy.enabled
@@ -74,11 +86,28 @@ function AdminPanel() {
 
     try {
       const conditions = {};
+      
+      // Agregar risk scores si están presentes
       if (formData.min_risk_score !== '') {
         conditions.min_risk_score = parseInt(formData.min_risk_score);
       }
       if (formData.max_risk_score !== '') {
         conditions.max_risk_score = parseInt(formData.max_risk_score);
+      }
+
+      // NUEVO: Parsear y merge condiciones personalizadas
+      if (formData.customConditions && formData.customConditions.trim() !== '') {
+        try {
+          const customConds = JSON.parse(formData.customConditions);
+          Object.assign(conditions, customConds);
+        } catch (jsonError) {
+          setMessage({ 
+            type: 'error', 
+            text: 'Error en formato JSON de condiciones personalizadas: ' + jsonError.message 
+          });
+          setLoading(false);
+          return;
+        }
       }
 
       const payload = {
@@ -200,6 +229,27 @@ function AdminPanel() {
                 required
                 disabled={loading}
               />
+            </div>
+
+            <div className="form-group">
+              <label>Condiciones personalizadas (JSON)</label>
+              <textarea
+                value={formData.customConditions}
+                onChange={(e) => setFormData({...formData, customConditions: e.target.value})}
+                placeholder='Ejemplo: {"allowed_countries": ["AR", "BR"]}'
+                rows="4"
+                disabled={loading}
+                style={{ fontFamily: 'monospace', fontSize: '13px' }}
+              />
+              <small style={{ display: 'block', marginTop: '5px', color: '#666' }}>
+                Opcional: Ingresa condiciones adicionales en formato JSON válido.
+                <br />
+                Ejemplos:
+                <br />
+                • <code>{`{"allowed_countries": ["AR"]}`}</code> - Solo Argentina
+                <br />
+                • <code>{`{"blocked_countries": ["CN", "RU"]}`}</code> - Bloquear países
+              </small>
             </div>
 
             <div className="form-row">
@@ -371,10 +421,20 @@ function AdminPanel() {
                       <td className="policy-description">{policy.description}</td>
                       <td className="policy-conditions">
                         {policy.conditions.min_risk_score !== undefined && (
-                          <span>Min: {policy.conditions.min_risk_score}</span>
+                          <span>Min: {policy.conditions.min_risk_score} </span>
                         )}
                         {policy.conditions.max_risk_score !== undefined && (
-                          <span>Max: {policy.conditions.max_risk_score}</span>
+                          <span>Max: {policy.conditions.max_risk_score} </span>
+                        )}
+                        {policy.conditions.allowed_countries && (
+                          <span title="Países permitidos">
+                            🌍 {policy.conditions.allowed_countries.join(', ')} 
+                          </span>
+                        )}
+                        {policy.conditions.blocked_countries && (
+                          <span title="Países bloqueados">
+                            🚫 {policy.conditions.blocked_countries.join(', ')} 
+                          </span>
                         )}
                       </td>
                       <td>
