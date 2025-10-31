@@ -108,17 +108,36 @@ function Dashboard({ user, onLogout }) {
 
   const getTimeAgo = (dateString) => {
     if (!dateString) return 'Nunca';
+    
     const date = new Date(dateString);
+    
+    // Validación: Verificar que la fecha es válida
+    if (isNaN(date.getTime())) {
+      console.error('Fecha inválida:', dateString);
+      return 'Fecha inválida';
+    }
+    
     const now = new Date();
     const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+    
+    // Verificación: Si la diferencia es negativa, es una fecha futura (error de sincronización)
+    if (diffMs < 0) {
+      console.warn('Fecha en el futuro detectada:', dateString, 'Diferencia:', diffMs);
+      return 'Justo ahora';
+    }
+    
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Hace un momento';
+    if (diffSecs < 10) return 'Justo ahora';
+    if (diffSecs < 60) return 'Hace un momento';
     if (diffMins < 60) return `Hace ${diffMins} min`;
     if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
-    if (diffDays < 30) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+    if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+    if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} semana${Math.floor(diffDays / 7) > 1 ? 's' : ''}`;
+    
     return formatDate(dateString);
   };
 

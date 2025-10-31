@@ -490,7 +490,7 @@ async def login_complete(
                 "success": True,
                 "requires_stepup": True,
                 "stepup_token": stepup_token,
-                "expires_at": expires_at.isoformat(),
+                "expires_at": expires_at.isoformat() + 'Z',
                 "verification_methods": ["biometric", "otp", "pin"],
                 "otp_code": otp_code,  # En producción, enviar por email/SMS
                 "risk_assessment": {
@@ -821,8 +821,8 @@ async def list_passkeys(
                 "id": str(pk.id),
                 "device_name": pk.device_name,
                 "device_type": pk.device_type,
-                "created_at": pk.created_at.isoformat(),
-                "last_used_at": pk.last_used_at.isoformat() if pk.last_used_at else None
+                "created_at": pk.created_at.isoformat() + 'Z',
+                "last_used_at": (pk.last_used_at.isoformat() + 'Z') if pk.last_used_at else None
             }
             for pk in passkeys
         ]
@@ -885,7 +885,7 @@ async def get_audit_events(
             {
                 "id": str(e.id),
                 "event_type": e.event_type,
-                "timestamp": e.timestamp.isoformat(),
+                "timestamp": e.timestamp.isoformat() + 'Z',
                 "ip_address": e.ip_address,
                 "event_data": e.event_data
             }
@@ -979,8 +979,8 @@ async def list_policies(db: Session = Depends(get_db)):
                     "action": p.action,
                     "priority": p.priority,
                     "enabled": p.enabled,
-                    "created_at": p.created_at.isoformat(),
-                    "updated_at": p.updated_at.isoformat() if p.updated_at else None
+                    "created_at": p.created_at.isoformat() + 'Z',
+                    "updated_at": (p.updated_at.isoformat() + 'Z') if p.updated_at else None
                 }
                 for p in policies
             ]
@@ -1012,8 +1012,8 @@ async def get_policy(policy_id: str, db: Session = Depends(get_db)):
             "action": policy.action,
             "priority": policy.priority,
             "enabled": policy.enabled,
-            "created_at": policy.created_at.isoformat(),
-            "updated_at": policy.updated_at.isoformat() if policy.updated_at else None
+            "created_at": policy.created_at.isoformat() + 'Z',
+            "updated_at": (policy.updated_at.isoformat() + 'Z') if policy.updated_at else None
         }
     except HTTPException:
         raise
