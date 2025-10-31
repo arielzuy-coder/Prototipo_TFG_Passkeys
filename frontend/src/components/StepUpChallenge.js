@@ -80,6 +80,51 @@ function StepUpChallenge({ stepupData, onSuccess, onCancel }) {
   const riskScore = stepupData.risk_assessment?.score || 0;
   const riskLevel = stepupData.risk_assessment?.level || 'medium';
 
+  // Determinar el mensaje contextual según los factores de riesgo
+  const getContextualMessage = () => {
+    const factors = stepupData.risk_assessment?.factors;
+    
+    if (!factors) {
+      return "Por tu seguridad, necesitamos que completes una verificación adicional.";
+    }
+
+    // Prioridad 1: Nueva ubicación/país
+    if (factors.location && !factors.location.known) {
+      const locationMsg = factors.location.message || '';
+      if (locationMsg.includes('Nueva ubicación')) {
+        return "Hemos detectado un acceso desde una ubicación diferente a la habitual. Por tu seguridad, necesitamos verificar tu identidad.";
+      }
+    }
+
+    // Prioridad 2: Dispositivo desconocido
+    if (factors.device && !factors.device.known) {
+      return "Hemos detectado un nuevo dispositivo intentando acceder a tu cuenta. Por tu seguridad, necesitamos verificar tu identidad.";
+    }
+
+    // Prioridad 3: Intentos fallidos recientes
+    if (factors.failed_attempts && factors.failed_attempts.count > 0) {
+      return "Detectamos intentos de acceso fallidos recientes. Por precaución, necesitamos verificar tu identidad.";
+    }
+
+    // Prioridad 4: Horario inusual
+    if (factors.time && !factors.time.is_business_hours && riskScore < 40) {
+      return "Detectamos un acceso fuera del horario habitual. Por tu seguridad, necesitamos verificar tu identidad.";
+    }
+
+    // Prioridad 5: Riesgo alto
+    if (riskLevel === 'high' || riskScore >= 75) {
+      return "Hemos detectado condiciones de riesgo elevado en tu intento de acceso. Por tu seguridad, necesitamos verificar tu identidad.";
+    }
+
+    // Prioridad 6: Riesgo medio
+    if (riskLevel === 'medium' || riskScore >= 40) {
+      return "Detectamos algunas condiciones inusuales en tu intento de acceso. Por precaución, necesitamos verificar tu identidad.";
+    }
+
+    // Default
+    return "Por tu seguridad, necesitamos que completes una verificación adicional.";
+  };
+
   return (
     <div className="stepup-container">
       <div className="stepup-card">
@@ -92,8 +137,7 @@ function StepUpChallenge({ stepupData, onSuccess, onCancel }) {
 
         <div className="stepup-info">
           <p>
-            Hemos detectado condiciones de riesgo elevado en tu intento de acceso.
-            Por tu seguridad, necesitamos que completes una verificación adicional.
+            {getContextualMessage()}
           </p>
 
           {stepupData.risk_assessment?.factors && (
