@@ -246,6 +246,10 @@ async def register_complete(
         ).first()
         
         if not existing_device:
+            # Obtener geolocalización real
+            location_data = risk_engine._get_location_from_ip(request.client.host)
+            location_display = location_data.get('display', f"IP: {request.client.host}") if isinstance(location_data, dict) else location_data
+            
             # Crear nuevo dispositivo
             device = Device(
                 user_id=user.id,
@@ -255,7 +259,7 @@ async def register_complete(
                 browser=ua.browser.family,
                 trust_level=50,
                 last_seen_ip=request.client.host,
-                last_seen_location=f"IP: {request.client.host}"
+                last_seen_location=location_display
             )
             db.add(device)
             db.commit()
@@ -455,6 +459,9 @@ async def login_complete(
             otp_code = f"{random.randint(100000, 999999)}"
             
             # Guardar en memoria temporal
+            location_data = risk_assessment['context'].get('location', {})
+            location_display = location_data.get('display', 'Unknown') if isinstance(location_data, dict) else location_data
+            
             stepup_tokens[stepup_token] = {
                 'user_id': user.id,
                 'email': user.email,
@@ -463,7 +470,7 @@ async def login_complete(
                 'session_data': {
                     'ip_address': ip_address,
                     'user_agent': user_agent,
-                    'location': risk_assessment['context'].get('location'),
+                    'location': location_display,
                     'risk_score': risk_assessment['score'],
                     'credential_id': credential_id
                 }
@@ -508,11 +515,14 @@ async def login_complete(
             return response
         
         # Flujo normal (allow) - crear sesión y emitir tokens
+        location_data = risk_assessment['context'].get('location', {})
+        location_display = location_data.get('display', 'Unknown') if isinstance(location_data, dict) else location_data
+        
         session = session_manager.create_session(
             user_id=user.id,
             ip_address=ip_address,
             user_agent=user_agent,
-            location=risk_assessment['context'].get('location'),
+            location=location_display,
             risk_score=risk_assessment['score'],
             db=db
         )
@@ -529,7 +539,7 @@ async def login_complete(
         if existing_device:
             existing_device.last_seen_at = datetime.utcnow()
             existing_device.last_seen_ip = ip_address
-            existing_device.last_seen_location = risk_assessment['context'].get('location')
+            existing_device.last_seen_location = location_display
             db.commit()
             logger.info(f"Device updated after login for user {user.email}: {device_fingerprint_login}")
         

@@ -112,6 +112,28 @@ class PolicyEngine:
                 return False
             logger.info(f"[POLICY ENGINE]   ✅ Score {risk_score} <= {max_score} - Cumple")
         
+        # NUEVA CONDICIÓN: allowed_countries
+        if 'allowed_countries' in conditions:
+            allowed = conditions['allowed_countries']
+            location = context.get('location', {})
+            current_country = location.get('country', 'Unknown')
+            logger.info(f"[POLICY ENGINE]   Verificando país permitido: {current_country} en {allowed}")
+            if current_country not in allowed:
+                logger.info(f"[POLICY ENGINE]   ❌ País {current_country} no está en la lista permitida - NO cumple")
+                return False
+            logger.info(f"[POLICY ENGINE]   ✅ País {current_country} permitido - Cumple")
+        
+        # NUEVA CONDICIÓN: blocked_countries
+        if 'blocked_countries' in conditions:
+            blocked = conditions['blocked_countries']
+            location = context.get('location', {})
+            current_country = location.get('country', 'Unknown')
+            logger.info(f"[POLICY ENGINE]   Verificando país bloqueado: {current_country} en {blocked}")
+            if current_country in blocked:
+                logger.info(f"[POLICY ENGINE]   ❌ País {current_country} está bloqueado - NO cumple")
+                return False
+            logger.info(f"[POLICY ENGINE]   ✅ País {current_country} no bloqueado - Cumple")
+        
         if 'required_location' in conditions:
             required = conditions['required_location']
             actual = context.get('location')

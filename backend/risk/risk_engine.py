@@ -5,6 +5,7 @@ from models import User, Device, AuditEvent
 import user_agents
 from decimal import Decimal
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -135,40 +136,50 @@ class RiskEngine:
         """Evalúa el riesgo basado en la ubicación geográfica."""
         
         logger.info(f"[RISK ENGINE] Evaluando riesgo de ubicación...")
-        logger.info(f"[RISK ENGINE] Ubicación actual: {context.get('location', 'Unknown')}")
         
+        current_location = context.get('location', {})
+        current_country = current_location.get('country', 'Unknown')
+        current_display = current_location.get('display', 'Unknown')
+        
+        logger.info(f"[RISK ENGINE] Ubicación actual: {current_display} (País: {current_country})")
+        
+        # Obtener ubicaciones conocidas del usuario
         recent_locations = db.query(Device.last_seen_location).filter(
-            Device.user_id == user.id
+            Device.user_id == user.id,
+            Device.last_seen_location != None
         ).distinct().all()
         
         recent_locations = [loc[0] for loc in recent_locations if loc[0]]
         
         logger.info(f"[RISK ENGINE] Ubicaciones conocidas del usuario ({len(recent_locations)}): {recent_locations}")
         
-        current_location = context.get('location', 'Unknown')
-        
+        # Primera vez - sin ubicaciones previas
         if not recent_locations:
             logger.info(f"[RISK ENGINE] ⚠️ No hay ubicaciones conocidas - Primera vez")
             return {
                 'score': 20,
                 'known': False,
-                'message': f"Primera ubicación registrada: {current_location}"
+                'country': current_country,
+                'message': f"Primera ubicación registrada: {current_display}"
             }
         
-        if current_location in recent_locations:
-            logger.info(f"[RISK ENGINE] ✅ Ubicación CONOCIDA: {current_location}")
+        # Verificar si la ubicación actual está en el historial
+        if current_display in recent_locations:
+            logger.info(f"[RISK ENGINE] ✅ Ubicación CONOCIDA: {current_display}")
             return {
                 'score': 0,
                 'known': True,
-                'message': f"Ubicación conocida: {current_location}"
+                'country': current_country,
+                'message': f"Ubicación conocida: {current_display}"
             }
         else:
-            logger.info(f"[RISK ENGINE] ❌ Ubicación NUEVA: {current_location}")
+            logger.info(f"[RISK ENGINE] ❌ Ubicación NUEVA: {current_display}")
             logger.info(f"[RISK ENGINE] No coincide con ninguna de: {recent_locations}")
             return {
                 'score': 35,
                 'known': False,
-                'message': f"Nueva ubicación: {current_location}"
+                'country': current_country,
+                'message': f"Nueva ubicación: {current_display}"
             }
     
     def _evaluate_time_risk(self, context: Dict) -> Dict[str, Any]:
@@ -272,13 +283,61 @@ class RiskEngine:
         else:
             return 'high'
     
-    def _get_location_from_ip(self, ip_address: str) -> str:
-        """Obtiene la ubicación aproximada desde la IP."""
+    def _get_location_from_ip(self, ip_address: str) -> Dict[str, str]:
+        """Obtiene la ubicación aproximada desde la IP usando API de geolocalización."""
         
+        # IPs locales
         if ip_address.startswith('127.') or ip_address == 'localhost':
-            return 'Localhost (Desarrollo)'
+            return {
+                'country': 'AR',  # Argentina por defecto en desarrollo
+                'country_name': 'Argentina',
+                'city': 'Buenos Aires',
+                'display': 'Localhost (Desarrollo)'
+            }
         
         if ip_address.startswith('192.168.') or ip_address.startswith('10.'):
-            return 'Red Local'
+            return {
+                'country': 'AR',  # Argentina por defecto en red local
+                'country_name': 'Argentina',
+                'city': 'Red Local',
+                'display': 'Red Local'
+            }
         
-        return f"IP: {ip_address}"
+        # Geolocalización real usando API gratuita
+        try:
+            # Usar ipapi.co (gratuito, 1000 req/día, no requiere API key)
+            response = requests.get(
+                f'https://ipapi.co/{ip_address}/json/',
+                timeout=2
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                country = data.get('country_code', 'Unknown')
+                country_name = data.get('country_name', 'Unknown')
+                city = data.get('city', 'Unknown')
+                
+                logger.info(f"[GEOLOCATION] IP: {ip_address} → {city}, {country_name} ({country})")
+                
+                return {
+                    'country': country,
+                    'country_name': country_name,
+                    'city': city,
+                    'display': f"{city}, {country_name}"
+                }
+            else:
+                logger.warning(f"[GEOLOCATION] API error: {response.status_code}")
+                
+        except requests.exceptions.Timeout:
+            logger.warning(f"[GEOLOCATION] Timeout para IP {ip_address}")
+        except Exception as e:
+            logger.error(f"[GEOLOCATION] Error: {e}")
+        
+        # Fallback si la API falla
+        return {
+            'country': 'Unknown',
+            'country_name': 'Unknown',
+            'city': 'Unknown',
+            'display': f"IP: {ip_address}"
+        }
