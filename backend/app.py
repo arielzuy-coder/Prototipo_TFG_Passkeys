@@ -493,6 +493,9 @@ async def login_complete(
             
             logger.info(f"Step-up requested for user {user.email}. OTP: {otp_code}")
             
+            # Ajustar nivel de riesgo: stepup siempre es HIGH
+            adjusted_risk_level = "high" if policy_decision['action'] in ['stepup', 'deny'] else risk_assessment['level']
+            
             response = {
                 "success": True,
                 "requires_stepup": True,
@@ -502,7 +505,7 @@ async def login_complete(
                 "otp_code": otp_code,  # En producción, enviar por email/SMS
                 "risk_assessment": {
                     "score": float(risk_assessment['score']),
-                    "level": risk_assessment['level'],
+                    "level": adjusted_risk_level,
                     "factors": risk_assessment['factors']
                 },
                 "user": {
