@@ -458,6 +458,10 @@ async def login_complete(
             # Generar OTP de 6 dígitos
             otp_code = f"{random.randint(100000, 999999)}"
             
+            # Calcular score y level ajustados para stepup
+            adjusted_risk_level = "high" if policy_decision['action'] in ['stepup', 'deny'] else risk_assessment['level']
+            adjusted_score = max(75.0, float(risk_assessment['score'])) if policy_decision['action'] in ['stepup', 'deny'] else float(risk_assessment['score'])
+            
             # Guardar en memoria temporal
             location_data = risk_assessment['context'].get('location', {})
             location_display = location_data.get('display', 'Unknown') if isinstance(location_data, dict) else location_data
@@ -471,17 +475,17 @@ async def login_complete(
                     'ip_address': ip_address,
                     'user_agent': user_agent,
                     'location': location_display,
-                    'risk_score': risk_assessment['score'],
+                    'risk_score': adjusted_score,
                     'credential_id': credential_id
                 }
             }
             
-            # Registrar solicitud de step-up
+            # Registrar solicitud de step-up (con score ajustado)
             audit = AuditEvent(
                 user_id=user.id,
                 event_type="stepup_requested",
                 event_data={
-                    "risk_score": float(risk_assessment['score']),
+                    "risk_score": adjusted_score,
                     "policy": policy_decision['policy_name'],
                     "factors": risk_assessment['factors']
                 },
@@ -492,11 +496,6 @@ async def login_complete(
             db.commit()
             
             logger.info(f"Step-up requested for user {user.email}. OTP: {otp_code}")
-            
-            # Ajustar nivel y score de riesgo: stepup siempre es HIGH
-            adjusted_risk_level = "high" if policy_decision['action'] in ['stepup', 'deny'] else risk_assessment['level']
-            # Si hay stepup por política, ajustar score mínimo a 75 para coherencia
-            adjusted_score = max(75.0, float(risk_assessment['score'])) if policy_decision['action'] in ['stepup', 'deny'] else float(risk_assessment['score'])
             
             response = {
                 "success": True,
