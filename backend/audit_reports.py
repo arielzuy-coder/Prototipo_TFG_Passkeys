@@ -1,0 +1,486 @@
+"""
+Módulo de Auditoría y Reportes
+UC-06: Exportación CSV/JSON, Reportes Agregados, Filtros Avanzados
+
+Este módulo implementa las funcionalidades críticas de auditoría y reportes:
+- Exportación de datos en formato CSV y JSON
+- Generación de reportes agregados con estadísticas
+- Filtros avanzados para consultas de auditoría
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import func, and_, or_, desc, asc
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
+import csv
+import json
+import io
+from fastapi.responses import StreamingResponse
+
+from models import AuditEvent, User, Session as DBSession, RiskEvaluation, Passkey
+from app import get_db
+
+router = APIRouter(prefix="/api/audit", tags=["Auditoría y Reportes"])
+
+
+# ============================================
+# MODELOS PYDANTIC
+# ============================================
+
+class ReportFilters(BaseModel):
+    """Filtros avanzados para reportes de auditoría"""
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    event_types: Optional[List[str]] = None
+    user_ids: Optional[List[str]] = None
+    ip_addresses: Optional[List[str]] = None
+    risk_score_min: Optional[float] = None
+    risk_score_max: Optional[float] = None
+    limit: Optional[int] = 100
+    offset: Optional[int] = 0
+    sort_by: Optional[str] = "timestamp"
+    sort_order: Optional[str] = "desc"
+
+
+class AggregatedReport(BaseModel):
+    """Modelo para reportes agregados"""
+    period: str
+    total_events: int
+    unique_users: int
+    total_logins: int
+    failed_logins: int
+    stepup_challenges: int
+    high_risk_events: int
+    avg_risk_score: float
+    event_type_breakdown: Dict[str, int]
+    top_ips: List[Dict[str, Any]]
+    hourly_distribution: List[Dict[str, Any]]
+
+
+class ExportRequest(BaseModel):
+    """Solicitud de exportación de datos"""
+    format: str  # 'csv' o 'json'
+    filters: Optional[ReportFilters] = None
+    include_fields: Optional[List[str]] = None
+
+
+# ============================================
+# FUNCIONES AUXILIARES
+# ============================================
+
+def apply_filters(query, filters: ReportFilters):
+    """Aplica filtros avanzados a una consulta de auditoría"""
+    
+    if filters.start_date:
+        query = query.filter(AuditEvent.timestamp >= filters.start_date)
+    
+    if filters.end_date:
+        query = query.filter(AuditEvent.timestamp <= filters.end_date)
+    
+    if filters.event_types:
+        query = query.filter(AuditEvent.event_type.in_(filters.event_types))
+    
+    if filters.user_ids:
+        query = query.filter(AuditEvent.user_id.in_(filters.user_ids))
+    
+    if filters.ip_addresses:
+        query = query.filter(AuditEvent.ip_address.in_(filters.ip_addresses))
+    
+    # Ordenamiento
+    if filters.sort_order == "asc":
+        query = query.order_by(asc(getattr(AuditEvent, filters.sort_by)))
+    else:
+        query = query.order_by(desc(getattr(AuditEvent, filters.sort_by)))
+    
+    return query
+
+
+def generate_csv(events: List[AuditEvent], include_fields: Optional[List[str]] = None) -> str:
+    """Genera contenido CSV desde eventos de auditoría"""
+    
+    output = io.StringIO()
+    
+    # Definir campos por defecto
+    default_fields = ['id', 'timestamp', 'event_type', 'user_id', 'ip_address', 'user_agent']
+    fields = include_fields if include_fields else default_fields
+    
+    writer = csv.DictWriter(output, fieldnames=fields)
+    writer.writeheader()
+    
+    for event in events:
+        row = {}
+        for field in fields:
+            value = getattr(event, field, None)
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            elif isinstance(value, dict):
+                value = json.dumps(value)
+            row[field] = value
+        writer.writerow(row)
+    
+    return output.getvalue()
+
+
+def generate_json(events: List[AuditEvent], include_fields: Optional[List[str]] = None) -> str:
+    """Genera contenido JSON desde eventos de auditoría"""
+    
+    result = []
+    default_fields = ['id', 'timestamp', 'event_type', 'user_id', 'ip_address', 'user_agent', 'event_data']
+    fields = include_fields if include_fields else default_fields
+    
+    for event in events:
+        item = {}
+        for field in fields:
+            value = getattr(event, field, None)
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            elif isinstance(value, uuid.UUID):
+                value = str(value)
+            item[field] = value
+        result.append(item)
+    
+    return json.dumps(result, indent=2, ensure_ascii=False)
+
+
+# ============================================
+# ENDPOINTS - EXPORTACIÓN
+# ============================================
+
+@router.post("/export")
+async def export_audit_data(
+    export_request: ExportRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    UC-06: Exportar datos de auditoría en formato CSV o JSON
+    
+    CRÍTICO: Permite exportar registros de eventos para cumplimiento y análisis externo
+    """
+    
+    try:
+        # Construir consulta base
+        query = db.query(AuditEvent)
+        
+        # Aplicar filtros si existen
+        if export_request.filters:
+            query = apply_filters(query, export_request.filters)
+            query = query.limit(export_request.filters.limit)
+            query = query.offset(export_request.filters.offset)
+        else:
+            # Límite por defecto para evitar exportaciones masivas
+            query = query.limit(10000)
+        
+        events = query.all()
+        
+        # Generar contenido según formato
+        if export_request.format.lower() == 'csv':
+            content = generate_csv(events, export_request.include_fields)
+            media_type = 'text/csv'
+            filename = f"audit_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        elif export_request.format.lower() == 'json':
+            content = generate_json(events, export_request.include_fields)
+            media_type = 'application/json'
+            filename = f"audit_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        else:
+            raise HTTPException(status_code=400, detail="Formato no soportado. Use 'csv' o 'json'")
+        
+        # Retornar como descarga
+        return StreamingResponse(
+            io.BytesIO(content.encode('utf-8')),
+            media_type=media_type,
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"'
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al exportar datos: {str(e)}")
+
+
+# ============================================
+# ENDPOINTS - REPORTES AGREGADOS
+# ============================================
+
+@router.post("/reports/aggregated")
+async def generate_aggregated_report(
+    filters: Optional[ReportFilters] = None,
+    db: Session = Depends(get_db)
+) -> AggregatedReport:
+    """
+    UC-06: Generar reporte agregado con estadísticas de seguridad y rendimiento
+    
+    CRÍTICO: Proporciona métricas comparativas para análisis de seguridad
+    """
+    
+    try:
+        # Definir período de análisis
+        if filters and filters.start_date:
+            start = filters.start_date
+        else:
+            start = datetime.now() - timedelta(days=30)
+        
+        if filters and filters.end_date:
+            end = filters.end_date
+        else:
+            end = datetime.now()
+        
+        # Consulta base con filtros de fecha
+        base_query = db.query(AuditEvent).filter(
+            AuditEvent.timestamp >= start,
+            AuditEvent.timestamp <= end
+        )
+        
+        # Aplicar otros filtros si existen
+        if filters:
+            if filters.event_types:
+                base_query = base_query.filter(AuditEvent.event_type.in_(filters.event_types))
+            if filters.user_ids:
+                base_query = base_query.filter(AuditEvent.user_id.in_(filters.user_ids))
+        
+        # Total de eventos
+        total_events = base_query.count()
+        
+        # Usuarios únicos
+        unique_users = db.query(func.count(func.distinct(AuditEvent.user_id))).filter(
+            AuditEvent.timestamp >= start,
+            AuditEvent.timestamp <= end
+        ).scalar() or 0
+        
+        # Estadísticas de eventos
+        total_logins = base_query.filter(AuditEvent.event_type == 'login_success').count()
+        failed_logins = base_query.filter(AuditEvent.event_type == 'login_failed').count()
+        stepup_challenges = base_query.filter(AuditEvent.event_type == 'stepup_required').count()
+        
+        # Eventos de alto riesgo (requiere join con risk_evaluations)
+        high_risk_query = db.query(func.count(RiskEvaluation.id)).filter(
+            RiskEvaluation.evaluated_at >= start,
+            RiskEvaluation.evaluated_at <= end,
+            RiskEvaluation.risk_score >= 70
+        )
+        high_risk_events = high_risk_query.scalar() or 0
+        
+        # Score de riesgo promedio
+        avg_risk = db.query(func.avg(RiskEvaluation.risk_score)).filter(
+            RiskEvaluation.evaluated_at >= start,
+            RiskEvaluation.evaluated_at <= end
+        ).scalar() or 0
+        
+        # Desglose por tipo de evento
+        event_breakdown = {}
+        event_types = db.query(
+            AuditEvent.event_type,
+            func.count(AuditEvent.id)
+        ).filter(
+            AuditEvent.timestamp >= start,
+            AuditEvent.timestamp <= end
+        ).group_by(AuditEvent.event_type).all()
+        
+        for event_type, count in event_types:
+            event_breakdown[event_type] = count
+        
+        # Top IPs
+        top_ips_query = db.query(
+            AuditEvent.ip_address,
+            func.count(AuditEvent.id).label('count')
+        ).filter(
+            AuditEvent.timestamp >= start,
+            AuditEvent.timestamp <= end,
+            AuditEvent.ip_address.isnot(None)
+        ).group_by(AuditEvent.ip_address).order_by(desc('count')).limit(10)
+        
+        top_ips = [
+            {"ip": ip, "count": count}
+            for ip, count in top_ips_query.all()
+        ]
+        
+        # Distribución por hora
+        hourly_dist = db.query(
+            func.extract('hour', AuditEvent.timestamp).label('hour'),
+            func.count(AuditEvent.id).label('count')
+        ).filter(
+            AuditEvent.timestamp >= start,
+            AuditEvent.timestamp <= end
+        ).group_by('hour').order_by('hour').all()
+        
+        hourly_distribution = [
+            {"hour": int(hour), "count": count}
+            for hour, count in hourly_dist
+        ]
+        
+        return AggregatedReport(
+            period=f"{start.isoformat()} - {end.isoformat()}",
+            total_events=total_events,
+            unique_users=unique_users,
+            total_logins=total_logins,
+            failed_logins=failed_logins,
+            stepup_challenges=stepup_challenges,
+            high_risk_events=high_risk_events,
+            avg_risk_score=float(avg_risk) if avg_risk else 0.0,
+            event_type_breakdown=event_breakdown,
+            top_ips=top_ips,
+            hourly_distribution=hourly_distribution
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al generar reporte agregado: {str(e)}")
+
+
+# ============================================
+# ENDPOINTS - CONSULTAS CON FILTROS AVANZADOS
+# ============================================
+
+@router.post("/events/search")
+async def search_audit_events(
+    filters: ReportFilters,
+    db: Session = Depends(get_db)
+):
+    """
+    UC-06: Búsqueda avanzada de eventos de auditoría con filtros múltiples
+    
+    Permite consultas complejas con múltiples criterios de filtrado
+    """
+    
+    try:
+        # Construir consulta
+        query = db.query(AuditEvent)
+        query = apply_filters(query, filters)
+        
+        # Aplicar paginación
+        query = query.limit(filters.limit).offset(filters.offset)
+        
+        events = query.all()
+        
+        # Contar total para paginación
+        count_query = db.query(func.count(AuditEvent.id))
+        count_query = apply_filters(count_query, filters)
+        total_count = count_query.scalar()
+        
+        # Formatear resultados
+        results = []
+        for event in events:
+            results.append({
+                'id': str(event.id),
+                'timestamp': event.timestamp.isoformat(),
+                'event_type': event.event_type,
+                'user_id': str(event.user_id) if event.user_id else None,
+                'ip_address': event.ip_address,
+                'user_agent': event.user_agent,
+                'event_data': event.event_data
+            })
+        
+        return {
+            'total': total_count,
+            'limit': filters.limit,
+            'offset': filters.offset,
+            'events': results
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en búsqueda de eventos: {str(e)}")
+
+
+@router.get("/statistics/summary")
+async def get_statistics_summary(
+    days: int = Query(default=30, ge=1, le=365),
+    db: Session = Depends(get_db)
+):
+    """
+    UC-06: Obtener resumen estadístico rápido de los últimos N días
+    
+    Endpoint optimizado para dashboard con métricas clave
+    """
+    
+    try:
+        start_date = datetime.now() - timedelta(days=days)
+        
+        # Métricas básicas
+        total_events = db.query(func.count(AuditEvent.id)).filter(
+            AuditEvent.timestamp >= start_date
+        ).scalar()
+        
+        total_users = db.query(func.count(func.distinct(AuditEvent.user_id))).filter(
+            AuditEvent.timestamp >= start_date
+        ).scalar()
+        
+        success_logins = db.query(func.count(AuditEvent.id)).filter(
+            AuditEvent.timestamp >= start_date,
+            AuditEvent.event_type == 'login_success'
+        ).scalar()
+        
+        failed_logins = db.query(func.count(AuditEvent.id)).filter(
+            AuditEvent.timestamp >= start_date,
+            AuditEvent.event_type == 'login_failed'
+        ).scalar()
+        
+        # Tasa de éxito
+        success_rate = (success_logins / (success_logins + failed_logins) * 100) if (success_logins + failed_logins) > 0 else 0
+        
+        return {
+            'period_days': days,
+            'total_events': total_events,
+            'active_users': total_users,
+            'successful_logins': success_logins,
+            'failed_logins': failed_logins,
+            'success_rate': round(success_rate, 2),
+            'generated_at': datetime.now().isoformat()
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")
+
+
+# ============================================
+# ENDPOINTS - REPORTES DE CUMPLIMIENTO
+# ============================================
+
+@router.get("/compliance/access-log")
+async def get_compliance_access_log(
+    user_id: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    UC-06: Generar log de accesos para cumplimiento normativo
+    
+    Proporciona evidencias de accesos para auditorías externas
+    """
+    
+    try:
+        query = db.query(AuditEvent).filter(
+            AuditEvent.event_type.in_(['login_success', 'access_granted', 'access_denied'])
+        )
+        
+        if user_id:
+            query = query.filter(AuditEvent.user_id == user_id)
+        
+        if start_date:
+            query = query.filter(AuditEvent.timestamp >= start_date)
+        
+        if end_date:
+            query = query.filter(AuditEvent.timestamp <= end_date)
+        
+        query = query.order_by(desc(AuditEvent.timestamp)).limit(1000)
+        
+        events = query.all()
+        
+        access_log = []
+        for event in events:
+            access_log.append({
+                'timestamp': event.timestamp.isoformat(),
+                'user_id': str(event.user_id) if event.user_id else 'N/A',
+                'action': event.event_type,
+                'ip_address': event.ip_address,
+                'result': 'success' if 'success' in event.event_type or 'granted' in event.event_type else 'denied',
+                'details': event.event_data
+            })
+        
+        return {
+            'total_records': len(access_log),
+            'access_log': access_log
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al generar log de cumplimiento: {str(e)}")

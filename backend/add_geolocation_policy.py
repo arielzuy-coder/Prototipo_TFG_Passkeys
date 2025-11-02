@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Script para agregar política de geolocalización al sistema Zero Trust.
 
@@ -29,8 +30,8 @@ try:
     from config import settings
     from sqlalchemy.exc import SQLAlchemyError
 except ImportError as e:
-    print(f"❌ Error importando módulos: {e}")
-    print("Asegúrate de ejecutar este script desde el directorio backend/")
+    print(f"ERROR importando modulos: {e}")
+    print("Asegurate de ejecutar este script desde el directorio backend/")
     sys.exit(1)
 
 # Configuración de la nueva política
@@ -51,15 +52,15 @@ def print_header(text):
 def diagnose_policies(db):
     """Muestra el estado actual de las políticas."""
     
-    print_header("🔍 DIAGNÓSTICO: Estado Actual de las Políticas")
+    print_header("DIAGNOSTICO: Estado Actual de las Politicas")
     
     policies = db.query(Policy).order_by(Policy.priority.asc()).all()
     
     if not policies:
-        print("⚠️  NO HAY POLÍTICAS EN LA BASE DE DATOS\n")
+        print("NO HAY POLITICAS EN LA BASE DE DATOS\n")
         return False
     
-    print(f"📊 Total de políticas: {len(policies)}\n")
+    print(f"Total de politicas: {len(policies)}\n")
     
     # Verificar si existe la política de geolocalización
     geo_policy = db.query(Policy).filter(
@@ -67,54 +68,30 @@ def diagnose_policies(db):
     ).first()
     
     if geo_policy:
-        print("✅ La política de geolocalización YA EXISTE:")
-        print(f"   • Nombre: {geo_policy.name}")
-        print(f"   • Prioridad: {geo_policy.priority}")
-        print(f"   • Condiciones: {geo_policy.conditions}")
-        print(f"   • Acción: {geo_policy.action}")
-        print(f"   • Habilitada: {geo_policy.enabled}\n")
+        print("La politica de geolocalizacion YA EXISTE:")
+        print(f"   - Nombre: {geo_policy.name}")
+        print(f"   - Prioridad: {geo_policy.priority}")
+        print(f"   - Condiciones: {geo_policy.conditions}")
+        print(f"   - Accion: {geo_policy.action}")
+        print(f"   - Habilitada: {geo_policy.enabled}\n")
     else:
-        print("⚠️  La política de geolocalización NO EXISTE\n")
+        print("La politica de geolocalizacion NO EXISTE\n")
     
     # Mostrar todas las políticas
-    print("📋 Políticas actuales:\n")
+    print("Politicas actuales:\n")
     for i, policy in enumerate(policies, 1):
-        status = "✅" if policy.enabled else "❌"
+        status = "ACTIVA" if policy.enabled else "INACTIVA"
         print(f"[{policy.priority}] {status} {policy.name}")
-        print(f"    └─ Acción: {policy.action.upper()}")
-        print(f"    └─ Condiciones: {policy.conditions}")
+        print(f"    - Accion: {policy.action.upper()}")
+        print(f"    - Condiciones: {policy.conditions}")
         print()
-    
-    # Simulación de caso de uso
-    print_header("🧪 SIMULACIÓN: Acceso desde USA")
-    
-    print("Contexto:")
-    print("  • Usuario: usuario@ejemplo.com")
-    print("  • IP: 169.197.85.172 (USA)")
-    print("  • Dispositivo: CASA (conocido)")
-    print("  • Score de riesgo: 11.75")
-    print()
-    
-    if geo_policy and geo_policy.enabled:
-        print("✅ Resultado ACTUAL:")
-        print("   [0] foreign_country_stepup → País US no está en ['AR']")
-        print("   → Acción: STEPUP ✅")
-        print("   → Nivel de Riesgo: HIGH")
-        print("   → Verificación adicional requerida\n")
-    else:
-        print("❌ Resultado ACTUAL:")
-        print("   [3] low_risk_allow → Score 11.75 ≤ 39")
-        print("   → Acción: ALLOW ❌")
-        print("   → Nivel de Riesgo: LOW")
-        print("   → Acceso directo (INCORRECTO)\n")
-        print("⚠️  NECESITAS agregar la política de geolocalización")
     
     return geo_policy is not None
 
 def add_geolocation_policy(db):
     """Agrega la política de geolocalización."""
     
-    print_header("✨ AGREGANDO POLÍTICA DE GEOLOCALIZACIÓN")
+    print_header("AGREGANDO POLITICA DE GEOLOCALIZACION")
     
     try:
         # 1. Verificar si ya existe
@@ -123,21 +100,21 @@ def add_geolocation_policy(db):
         ).first()
         
         if existing:
-            print(f"⚠️  La política '{GEOLOCATION_POLICY['name']}' ya existe.")
+            print(f"La politica '{GEOLOCATION_POLICY['name']}' ya existe.")
             print(f"   Prioridad actual: {existing.priority}")
             
-            response = input("\n¿Deseas eliminarla y recrearla? (s/n): ")
+            response = input("\nDeseas eliminarla y recrearla? (s/n): ")
             if response.lower() not in ['s', 'si', 'y', 'yes']:
-                print("\n❌ Operación cancelada.\n")
+                print("\nOperacion cancelada.\n")
                 return False
             
-            print(f"\n🗑️  Eliminando política existente...")
+            print(f"\nEliminando politica existente...")
             db.delete(existing)
             db.commit()
-            print("✅ Política eliminada.\n")
+            print("Politica eliminada.\n")
         
         # 2. Ajustar prioridades de políticas existentes
-        print("🔄 Ajustando prioridades de políticas existentes...")
+        print("Ajustando prioridades de politicas existentes...")
         policies_to_update = db.query(Policy).filter(
             Policy.priority >= 0
         ).all()
@@ -146,14 +123,14 @@ def add_geolocation_policy(db):
         for policy in policies_to_update:
             old_priority = policy.priority
             policy.priority = policy.priority + 1
-            print(f"   • {policy.name}: {old_priority} → {policy.priority}")
+            print(f"   - {policy.name}: {old_priority} -> {policy.priority}")
             updated_count += 1
         
         db.commit()
-        print(f"✅ {updated_count} políticas actualizadas.\n")
+        print(f"{updated_count} politicas actualizadas.\n")
         
         # 3. Crear nueva política de geolocalización
-        print("✨ Creando política de geolocalización...")
+        print("Creando politica de geolocalizacion...")
         
         new_policy = Policy(
             name=GEOLOCATION_POLICY['name'],
@@ -167,60 +144,60 @@ def add_geolocation_policy(db):
         db.add(new_policy)
         db.commit()
         
-        print(f"✅ Política creada:")
-        print(f"   • Nombre: {new_policy.name}")
-        print(f"   • Prioridad: {new_policy.priority}")
-        print(f"   • Condiciones: {new_policy.conditions}")
-        print(f"   • Acción: {new_policy.action}\n")
+        print(f"Politica creada:")
+        print(f"   - Nombre: {new_policy.name}")
+        print(f"   - Prioridad: {new_policy.priority}")
+        print(f"   - Condiciones: {new_policy.conditions}")
+        print(f"   - Accion: {new_policy.action}\n")
         
         # 4. Verificar
-        print("🔍 Verificando creación...")
+        print("Verificando creacion...")
         policies = db.query(Policy).order_by(Policy.priority.asc()).all()
         
-        print(f"   Total de políticas: {len(policies)}")
+        print(f"   Total de politicas: {len(policies)}")
         
         geo_policy = policies[0] if policies else None
         if geo_policy and geo_policy.name == GEOLOCATION_POLICY['name']:
-            print(f"   ✅ Política de geolocalización en prioridad 0\n")
+            print(f"   Politica de geolocalizacion en prioridad 0\n")
             return True
         else:
-            print(f"   ⚠️  Advertencia: La política no está en prioridad 0\n")
+            print(f"   Advertencia: La politica no esta en prioridad 0\n")
             return False
             
     except SQLAlchemyError as e:
-        print(f"\n❌ ERROR: {e}")
+        print(f"\nERROR: {e}")
         db.rollback()
         return False
 
 def verify_implementation(db):
     """Verifica que la implementación sea correcta."""
     
-    print_header("✅ VERIFICACIÓN DE IMPLEMENTACIÓN")
+    print_header("VERIFICACION DE IMPLEMENTACION")
     
     policies = db.query(Policy).order_by(Policy.priority.asc()).all()
     
     if not policies:
-        print("❌ ERROR: No hay políticas en la base de datos.\n")
+        print("ERROR: No hay politicas en la base de datos.\n")
         return False
     
     # Verificar política de geolocalización
     geo_policy = policies[0] if policies else None
     
     if not geo_policy or geo_policy.name != GEOLOCATION_POLICY['name']:
-        print("❌ ERROR: La política de geolocalización no está en prioridad 0.\n")
+        print("ERROR: La politica de geolocalizacion no esta en prioridad 0.\n")
         return False
     
-    print("📋 Orden de políticas:\n")
+    print("Orden de politicas:\n")
     for policy in policies:
-        status = "✅" if policy.enabled else "❌"
+        status = "ACTIVA" if policy.enabled else "INACTIVA"
         print(f"[{policy.priority}] {status} {policy.name}: {policy.action.upper()}")
     
     # Verificar condiciones de la política
-    print("\n🔍 Verificando configuración de geolocalización...")
+    print("\nVerificando configuracion de geolocalizacion...")
     
     checks = [
         (geo_policy.conditions == GEOLOCATION_POLICY['conditions'], "Condiciones"),
-        (geo_policy.action == GEOLOCATION_POLICY['action'], "Acción"),
+        (geo_policy.action == GEOLOCATION_POLICY['action'], "Accion"),
         (geo_policy.priority == GEOLOCATION_POLICY['priority'], "Prioridad"),
         (geo_policy.enabled == True, "Habilitada")
     ]
@@ -228,28 +205,28 @@ def verify_implementation(db):
     all_ok = True
     for is_ok, field in checks:
         if is_ok:
-            print(f"   ✅ {field}: correcto")
+            print(f"   {field}: correcto")
         else:
-            print(f"   ❌ {field}: incorrecto")
+            print(f"   {field}: incorrecto")
             all_ok = False
     
     if all_ok:
         print("\n" + "="*80)
-        print(" ✅ VERIFICACIÓN EXITOSA")
+        print(" VERIFICACION EXITOSA")
         print("="*80)
-        print("\n🎯 RESULTADO:")
-        print("   • Política de geolocalización instalada correctamente")
-        print("   • Accesos desde fuera de Argentina requerirán step-up")
-        print("   • Accesos desde Argentina se evaluarán por score\n")
+        print("\nRESULTADO:")
+        print("   - Politica de geolocalizacion instalada correctamente")
+        print("   - Accesos desde fuera de Argentina requeriran step-up")
+        print("   - Accesos desde Argentina se evaluaran por score\n")
         
-        print("🧪 PRÓXIMAS PRUEBAS:")
-        print("   1. Accede desde USA → Debería mostrar HIGH + step-up")
-        print("   2. Accede desde Argentina → Evaluación normal por score\n")
+        print("PROXIMAS PRUEBAS:")
+        print("   1. Accede desde USA -> Deberia mostrar HIGH + step-up")
+        print("   2. Accede desde Argentina -> Evaluacion normal por score\n")
     else:
         print("\n" + "="*80)
-        print(" ❌ VERIFICACIÓN FALLIDA")
+        print(" VERIFICACION FALLIDA")
         print("="*80)
-        print("\nAlgunos campos no están configurados correctamente.")
+        print("\nAlgunos campos no estan configurados correctamente.")
         print("Intenta ejecutar el script con --add nuevamente.\n")
     
     return all_ok
@@ -258,22 +235,22 @@ def main():
     """Función principal."""
     
     parser = argparse.ArgumentParser(
-        description='Agregar política de geolocalización al sistema'
+        description='Agregar politica de geolocalizacion al sistema'
     )
     parser.add_argument(
         '--diagnose',
         action='store_true',
-        help='Ver estado actual de las políticas'
+        help='Ver estado actual de las politicas'
     )
     parser.add_argument(
         '--add',
         action='store_true',
-        help='Agregar política de geolocalización'
+        help='Agregar politica de geolocalizacion'
     )
     parser.add_argument(
         '--verify',
         action='store_true',
-        help='Verificar que la política esté correctamente instalada'
+        help='Verificar que la politica este correctamente instalada'
     )
     
     args = parser.parse_args()
@@ -281,23 +258,23 @@ def main():
     # Si no se especifica ninguna acción, mostrar ayuda
     if not (args.diagnose or args.add or args.verify):
         parser.print_help()
-        print("\n💡 SUGERENCIA: Comienza con --diagnose para ver el estado actual\n")
+        print("\nSUGERENCIA: Comienza con --diagnose para ver el estado actual\n")
         return
     
     # Conectar a la base de datos
-    print("\n🔌 Conectando a la base de datos...")
+    print("\nConectando a la base de datos...")
     
     try:
         engine = create_engine(settings.DATABASE_URL)
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         db = SessionLocal()
-        print("✅ Conexión exitosa\n")
+        print("Conexion exitosa\n")
     except Exception as e:
-        print(f"❌ Error al conectar: {e}\n")
+        print(f"Error al conectar: {e}\n")
         print("Verifica que:")
-        print("  • La base de datos esté accesible")
-        print("  • Las credenciales en .env sean correctas")
-        print("  • DATABASE_URL esté configurado\n")
+        print("  - La base de datos este accesible")
+        print("  - Las credenciales en .env sean correctas")
+        print("  - DATABASE_URL este configurado\n")
         return
     
     try:
@@ -310,31 +287,31 @@ def main():
             exists = diagnose_policies(db)
             
             if exists:
-                print("\n⚠️  La política ya existe.")
-                print("   Para recrearla, el script te preguntará.\n")
+                print("\nLa politica ya existe.")
+                print("   Para recrearla, el script te preguntara.\n")
             else:
-                print("\n➡️  Procediendo a agregar la política...\n")
+                print("\nProcediendo a agregar la politica...\n")
             
             success = add_geolocation_policy(db)
             
             if success:
                 print("="*80)
-                print(" ✅ POLÍTICA AGREGADA EXITOSAMENTE")
+                print(" POLITICA AGREGADA EXITOSAMENTE")
                 print("="*80)
-                print("\n📝 PRÓXIMOS PASOS:")
-                print("   1. El sistema aplicará los cambios inmediatamente")
+                print("\nPROXIMOS PASOS:")
+                print("   1. El sistema aplicara los cambios inmediatamente")
                 print("   2. No necesitas reiniciar el backend en Render")
                 print("   3. Prueba accediendo desde USA")
                 print("   4. Ejecuta: python add_geolocation_policy.py --verify\n")
             else:
-                print("❌ La operación falló. Revisa los errores.\n")
+                print("La operacion fallo. Revisa los errores.\n")
         
         elif args.verify:
             verify_implementation(db)
     
     finally:
         db.close()
-        print("🔌 Conexión cerrada\n")
+        print("Conexion cerrada\n")
 
 if __name__ == "__main__":
     main()
