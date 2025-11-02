@@ -369,13 +369,13 @@ function AdminPanel() {
             className={`tab-button ${activeTab === 'policies' ? 'active' : ''}`}
             onClick={() => setActiveTab('policies')}
           >
-            🔒 Políticas de Acceso
+            <span>🔒</span> Políticas de Acceso
           </button>
           <button 
             className={`tab-button ${activeTab === 'audit' ? 'active' : ''}`}
             onClick={() => setActiveTab('audit')}
           >
-            📊 Auditoría y Reportes
+            <span>📊</span> Auditoría y Reportes
           </button>
         </div>
 
