@@ -1,11 +1,6 @@
 """
 Módulo de Auditoría y Reportes
 UC-06: Exportación CSV/JSON, Reportes Agregados, Filtros Avanzados
-
-Este módulo implementa las funcionalidades críticas de auditoría y reportes:
-- Exportación de datos en formato CSV y JSON
-- Generación de reportes agregados con estadísticas
-- Filtros avanzados para consultas de auditoría
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -20,9 +15,13 @@ import json
 import io
 import uuid
 from fastapi.responses import StreamingResponse
+import logging
 
 from models import AuditEvent, User, Session as DBSession, RiskEvaluation, Passkey
 from config import settings
+
+# Configurar logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/audit", tags=["Auditoría y Reportes"])
 
@@ -30,7 +29,7 @@ router = APIRouter(prefix="/api/audit", tags=["Auditoría y Reportes"])
 engine = create_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Dependency para obtener DB session (definida aquí para evitar importación circular)
+# Dependency para obtener DB session
 def get_db():
     db = SessionLocal()
     try:
@@ -112,7 +111,7 @@ def apply_filters(query, filters: ReportFilters):
 
 
 def generate_csv(events: List[AuditEvent], include_fields: Optional[List[str]] = None) -> str:
-    """Genera contenido CSV desde eventos de auditoría"""
+    """Genera contenido CSV desde eventos de auditoría - VERSIÓN CORREGIDA"""
     
     output = io.StringIO()
     
@@ -123,41 +122,74 @@ def generate_csv(events: List[AuditEvent], include_fields: Optional[List[str]] =
     writer = csv.DictWriter(output, fieldnames=fields)
     writer.writeheader()
     
+    # Log para debug
+    logger.info(f"Generando CSV con {len(events)} eventos")
+    
     for event in events:
         row = {}
         for field in fields:
-            value = getattr(event, field, None)
-            if isinstance(value, datetime):
-                value = value.isoformat()
-            elif isinstance(value, dict):
-                value = json.dumps(value)
-            elif isinstance(value, uuid.UUID):
-                value = str(value)
-            row[field] = value
+            try:
+                value = getattr(event, field, None)
+                
+                # Convertir tipos especiales a string
+                if isinstance(value, datetime):
+                    value = value.isoformat()
+                elif isinstance(value, uuid.UUID):
+                    value = str(value)
+                elif isinstance(value, dict):
+                    value = json.dumps(value)
+                elif value is None:
+                    value = ''
+                else:
+                    value = str(value)
+                
+                row[field] = value
+            except Exception as e:
+                logger.error(f"Error procesando campo {field}: {str(e)}")
+                row[field] = ''
+        
         writer.writerow(row)
     
-    return output.getvalue()
+    csv_content = output.getvalue()
+    logger.info(f"CSV generado con {len(csv_content)} caracteres")
+    
+    return csv_content
 
 
 def generate_json(events: List[AuditEvent], include_fields: Optional[List[str]] = None) -> str:
-    """Genera contenido JSON desde eventos de auditoría"""
+    """Genera contenido JSON desde eventos de auditoría - VERSIÓN CORREGIDA"""
     
     result = []
     default_fields = ['id', 'timestamp', 'event_type', 'user_id', 'ip_address', 'user_agent', 'event_data']
     fields = include_fields if include_fields else default_fields
     
+    logger.info(f"Generando JSON con {len(events)} eventos")
+    
     for event in events:
         item = {}
         for field in fields:
-            value = getattr(event, field, None)
-            if isinstance(value, datetime):
-                value = value.isoformat()
-            elif isinstance(value, uuid.UUID):
-                value = str(value)
-            item[field] = value
+            try:
+                value = getattr(event, field, None)
+                
+                # Convertir tipos especiales
+                if isinstance(value, datetime):
+                    value = value.isoformat()
+                elif isinstance(value, uuid.UUID):
+                    value = str(value)
+                elif value is None:
+                    value = None
+                
+                item[field] = value
+            except Exception as e:
+                logger.error(f"Error procesando campo {field}: {str(e)}")
+                item[field] = None
+        
         result.append(item)
     
-    return json.dumps(result, indent=2, ensure_ascii=False)
+    json_content = json.dumps(result, indent=2, ensure_ascii=False, default=str)
+    logger.info(f"JSON generado con {len(json_content)} caracteres")
+    
+    return json_content
 
 
 # ============================================
@@ -176,42 +208,63 @@ async def export_audit_data(
     """
     
     try:
+        logger.info(f"Iniciando exportación en formato {export_request.format}")
+        
         # Construir consulta base
         query = db.query(AuditEvent)
         
         # Aplicar filtros si existen
         if export_request.filters:
+            logger.info(f"Aplicando filtros: {export_request.filters}")
             query = apply_filters(query, export_request.filters)
-            query = query.limit(export_request.filters.limit)
-            query = query.offset(export_request.filters.offset)
+            
+            # Aplicar límite y offset
+            limit = export_request.filters.limit or 100
+            offset = export_request.filters.offset or 0
+            
+            query = query.limit(limit).offset(offset)
         else:
             # Límite por defecto para evitar exportaciones masivas
             query = query.limit(10000)
         
+        # Ejecutar consulta
         events = query.all()
+        logger.info(f"Consulta ejecutada: {len(events)} eventos encontrados")
         
-        # Generar contenido según formato
-        if export_request.format.lower() == 'csv':
-            content = generate_csv(events, export_request.include_fields)
-            media_type = 'text/csv'
-            filename = f"audit_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        elif export_request.format.lower() == 'json':
-            content = generate_json(events, export_request.include_fields)
-            media_type = 'application/json'
-            filename = f"audit_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        if len(events) == 0:
+            logger.warning("No se encontraron eventos para exportar")
+            # Retornar archivo vacío con mensaje
+            if export_request.format.lower() == 'csv':
+                content = "id,timestamp,event_type,user_id,ip_address,user_agent\n# No hay datos para exportar"
+            else:
+                content = json.dumps({"message": "No hay datos para exportar", "events": []})
         else:
-            raise HTTPException(status_code=400, detail="Formato no soportado. Use 'csv' o 'json'")
+            # Generar contenido según formato
+            if export_request.format.lower() == 'csv':
+                content = generate_csv(events, export_request.include_fields)
+                media_type = 'text/csv'
+                filename = f"audit_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            elif export_request.format.lower() == 'json':
+                content = generate_json(events, export_request.include_fields)
+                media_type = 'application/json'
+                filename = f"audit_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            else:
+                raise HTTPException(status_code=400, detail="Formato no soportado. Use 'csv' o 'json'")
+        
+        logger.info(f"Contenido generado: {len(content)} bytes")
         
         # Retornar como descarga
         return StreamingResponse(
             io.BytesIO(content.encode('utf-8')),
             media_type=media_type,
             headers={
-                'Content-Disposition': f'attachment; filename="{filename}"'
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Length': str(len(content.encode('utf-8')))
             }
         )
     
     except Exception as e:
+        logger.error(f"Error al exportar datos: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al exportar datos: {str(e)}")
 
 
@@ -268,7 +321,7 @@ async def generate_aggregated_report(
         failed_logins = base_query.filter(AuditEvent.event_type == 'login_failed').count()
         stepup_challenges = base_query.filter(AuditEvent.event_type == 'stepup_required').count()
         
-        # Eventos de alto riesgo (requiere join con risk_evaluations)
+        # Eventos de alto riesgo
         high_risk_query = db.query(func.count(RiskEvaluation.id)).filter(
             RiskEvaluation.evaluated_at >= start,
             RiskEvaluation.evaluated_at <= end,
@@ -339,6 +392,7 @@ async def generate_aggregated_report(
         )
     
     except Exception as e:
+        logger.error(f"Error al generar reporte agregado: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al generar reporte agregado: {str(e)}")
 
 
@@ -353,8 +407,6 @@ async def search_audit_events(
 ):
     """
     UC-06: Búsqueda avanzada de eventos de auditoría con filtros múltiples
-    
-    Permite consultas complejas con múltiples criterios de filtrado
     """
     
     try:
@@ -362,15 +414,15 @@ async def search_audit_events(
         query = db.query(AuditEvent)
         query = apply_filters(query, filters)
         
+        # Contar total primero
+        count_query = db.query(func.count(AuditEvent.id))
+        count_query = apply_filters(count_query, filters)
+        total_count = count_query.scalar()
+        
         # Aplicar paginación
         query = query.limit(filters.limit).offset(filters.offset)
         
         events = query.all()
-        
-        # Contar total para paginación
-        count_query = db.query(func.count(AuditEvent.id))
-        count_query = apply_filters(count_query, filters)
-        total_count = count_query.scalar()
         
         # Formatear resultados
         results = []
@@ -393,6 +445,7 @@ async def search_audit_events(
         }
     
     except Exception as e:
+        logger.error(f"Error en búsqueda de eventos: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error en búsqueda de eventos: {str(e)}")
 
 
@@ -403,8 +456,6 @@ async def get_statistics_summary(
 ):
     """
     UC-06: Obtener resumen estadístico rápido de los últimos N días
-    
-    Endpoint optimizado para dashboard con métricas clave
     """
     
     try:
@@ -413,21 +464,21 @@ async def get_statistics_summary(
         # Métricas básicas
         total_events = db.query(func.count(AuditEvent.id)).filter(
             AuditEvent.timestamp >= start_date
-        ).scalar()
+        ).scalar() or 0
         
         total_users = db.query(func.count(func.distinct(AuditEvent.user_id))).filter(
             AuditEvent.timestamp >= start_date
-        ).scalar()
+        ).scalar() or 0
         
         success_logins = db.query(func.count(AuditEvent.id)).filter(
             AuditEvent.timestamp >= start_date,
             AuditEvent.event_type == 'login_success'
-        ).scalar()
+        ).scalar() or 0
         
         failed_logins = db.query(func.count(AuditEvent.id)).filter(
             AuditEvent.timestamp >= start_date,
             AuditEvent.event_type == 'login_failed'
-        ).scalar()
+        ).scalar() or 0
         
         # Tasa de éxito
         success_rate = (success_logins / (success_logins + failed_logins) * 100) if (success_logins + failed_logins) > 0 else 0
@@ -443,6 +494,7 @@ async def get_statistics_summary(
         }
     
     except Exception as e:
+        logger.error(f"Error al obtener estadísticas: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")
 
 
@@ -459,8 +511,6 @@ async def get_compliance_access_log(
 ):
     """
     UC-06: Generar log de accesos para cumplimiento normativo
-    
-    Proporciona evidencias de accesos para auditorías externas
     """
     
     try:
@@ -498,4 +548,5 @@ async def get_compliance_access_log(
         }
     
     except Exception as e:
+        logger.error(f"Error al generar log de cumplimiento: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error al generar log de cumplimiento: {str(e)}")
