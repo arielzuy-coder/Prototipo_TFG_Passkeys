@@ -365,6 +365,16 @@ const AuditReports = () => {
           )}
         </div>
       )}
+      
+      {/* Botón Volver al Dashboard */}
+      <div className="back-button-container">
+        <button 
+          onClick={() => window.location.href = '/dashboard'}
+          className="back-button"
+        >
+          ← Volver al Dashboard
+        </button>
+      </div>
     </div>
   );
 };
