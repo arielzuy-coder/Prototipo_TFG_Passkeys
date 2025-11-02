@@ -10,19 +10,33 @@ Este módulo implementa las funcionalidades críticas de auditoría y reportes:
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_, desc, asc
+from sqlalchemy import func, and_, or_, desc, asc, create_engine
+from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 import csv
 import json
 import io
+import uuid
 from fastapi.responses import StreamingResponse
 
 from models import AuditEvent, User, Session as DBSession, RiskEvaluation, Passkey
-from app import get_db
+from config import settings
 
 router = APIRouter(prefix="/api/audit", tags=["Auditoría y Reportes"])
+
+# Configurar la base de datos independientemente
+engine = create_engine(settings.DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Dependency para obtener DB session (definida aquí para evitar importación circular)
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 # ============================================
@@ -117,6 +131,8 @@ def generate_csv(events: List[AuditEvent], include_fields: Optional[List[str]] =
                 value = value.isoformat()
             elif isinstance(value, dict):
                 value = json.dumps(value)
+            elif isinstance(value, uuid.UUID):
+                value = str(value)
             row[field] = value
         writer.writerow(row)
     
@@ -238,17 +254,16 @@ async def generate_aggregated_report(
                 base_query = base_query.filter(AuditEvent.event_type.in_(filters.event_types))
             if filters.user_ids:
                 base_query = base_query.filter(AuditEvent.user_id.in_(filters.user_ids))
+            if filters.ip_addresses:
+                base_query = base_query.filter(AuditEvent.ip_address.in_(filters.ip_addresses))
         
-        # Total de eventos
+        # Métricas básicas
         total_events = base_query.count()
-        
-        # Usuarios únicos
         unique_users = db.query(func.count(func.distinct(AuditEvent.user_id))).filter(
             AuditEvent.timestamp >= start,
             AuditEvent.timestamp <= end
         ).scalar() or 0
         
-        # Estadísticas de eventos
         total_logins = base_query.filter(AuditEvent.event_type == 'login_success').count()
         failed_logins = base_query.filter(AuditEvent.event_type == 'login_failed').count()
         stepup_challenges = base_query.filter(AuditEvent.event_type == 'stepup_required').count()
