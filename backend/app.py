@@ -18,6 +18,7 @@ from auth.token_manager import TokenManager
 from auth.session_manager import SessionManager
 from risk.risk_engine import RiskEngine
 from risk.policies import PolicyEngine
+from audit_reports import router as audit_router
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -73,6 +74,7 @@ token_manager = TokenManager()
 session_manager = SessionManager()
 risk_engine = RiskEngine()
 policy_engine = PolicyEngine()
+app.include_router(audit_router)
 
 # Almacenamiento temporal para step-up (en producción usar Redis)
 stepup_tokens = {}  # {token: {user_id, email, expires_at, session_data, otp}}
