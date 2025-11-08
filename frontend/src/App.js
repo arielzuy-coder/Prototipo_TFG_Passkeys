@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
+import './styles/Dashboard_styles.css';
+import './styles/RiskMonitor_styles.css';
 import EnrollPasskey from './components/EnrollPasskey';
 import LoginPasswordless from './components/LoginPasswordless';
 import Dashboard from './components/Dashboard';
