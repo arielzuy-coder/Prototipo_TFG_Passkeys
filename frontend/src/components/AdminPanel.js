@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import AuditReports from './AuditReports';
 
-function AdminPanel({ onLogout }) {
+function AdminPanel() {
   const [policies, setPolicies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -11,6 +11,14 @@ function AdminPanel({ onLogout }) {
   const [editingPolicy, setEditingPolicy] = useState(null);
   const [activeTab, setActiveTab] = useState('policies'); // Estado para tabs
   const navigate = useNavigate();
+
+  // Función para cerrar sesión
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    navigate('/login');
+  };
 
   // Formulario
   const [formData, setFormData] = useState({
@@ -357,7 +365,7 @@ function AdminPanel({ onLogout }) {
           </div>
           <button 
             className="btn-secondary" 
-            onClick={onLogout}
+            onClick={handleLogout}
           >
             🚪 Cerrar sesión
           </button>
@@ -518,7 +526,7 @@ function AdminPanel({ onLogout }) {
             <div className="admin-footer">
               <button 
                 className="btn-secondary" 
-                onClick={onLogout}
+                onClick={() => navigate('/dashboard')}
               >
                 ← Volver al Dashboard
               </button>
