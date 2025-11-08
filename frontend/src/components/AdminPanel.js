@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import AuditReports from './AuditReports';
 
-function AdminPanel() {
+function AdminPanel({ onLogout }) {
   const [policies, setPolicies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -357,7 +357,7 @@ function AdminPanel() {
           </div>
           <button 
             className="btn-secondary" 
-            onClick={() => navigate('/dashboard')}
+            onClick={onLogout}
           >
             🚪 Cerrar sesión
           </button>
@@ -518,7 +518,7 @@ function AdminPanel() {
             <div className="admin-footer">
               <button 
                 className="btn-secondary" 
-                onClick={() => navigate('/dashboard')}
+                onClick={onLogout}
               >
                 ← Volver al Dashboard
               </button>
