@@ -236,16 +236,17 @@
 
         .steps li {
             counter-increment: step;
-            padding: 15px 0 15px 50px;
+            padding: 20px 20px 20px 60px;
+            margin: 15px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
             position: relative;
-            border-left: 2px solid #e9ecef;
-            margin-left: 20px;
         }
 
         .steps li:before {
             content: counter(step);
             position: absolute;
-            left: -20px;
+            left: 15px;
             top: 15px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -256,6 +257,25 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge.warning {
+            background: #fff3cd;
+            color: #856404;
         }
 
         .footer {
@@ -270,32 +290,17 @@
             margin-bottom: 15px;
         }
 
-        .badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 600;
-            margin: 0 5px;
-        }
-
-        .badge.success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .badge.warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        @media print {
-            body {
-                background: white;
-                padding: 0;
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
             }
-            .container {
-                box-shadow: none;
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tech-stack {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -326,31 +331,31 @@
                 <h2>🎯 Descripción</h2>
                 <p>Sistema de autenticación sin contraseñas (passwordless) basado en el estándar FIDO2/WebAuthn, integrado con un motor de evaluación de riesgo continuo bajo el paradigma Zero Trust. El sistema implementa autenticación adaptativa (step-up) según el nivel de riesgo detectado y proporciona un panel de administración para gestionar políticas de seguridad.</p>
 
-                <h3>Características Principales:</h3>
+                <h3>Características Principales</h3>
                 <div class="feature-grid">
                     <div class="feature-card">
                         <h4>🔑 Autenticación Passwordless</h4>
-                        <p>Uso de Passkeys basadas en FIDO2/WebAuthn para eliminar contraseñas</p>
+                        <p>Uso de Passkeys (FIDO2/WebAuthn) para autenticación sin contraseñas</p>
                     </div>
                     <div class="feature-card">
-                        <h4>📊 Evaluación de Riesgo</h4>
-                        <p>Motor que analiza múltiples factores en cada acceso</p>
+                        <h4>🛡️ Evaluación de Riesgo</h4>
+                        <p>Motor que analiza múltiples factores en cada acceso en tiempo real</p>
                     </div>
                     <div class="feature-card">
-                        <h4>⚠️ Autenticación Adaptativa</h4>
-                        <p>Verificación adicional según nivel de riesgo (Step-up)</p>
+                        <h4>🔐 Step-Up Authentication</h4>
+                        <p>Verificación adicional automática según nivel de riesgo</p>
                     </div>
                     <div class="feature-card">
                         <h4>⚙️ Panel de Administración</h4>
-                        <p>Gestión completa de políticas de acceso y umbrales</p>
+                        <p>Gestión completa de políticas de acceso y umbrales de riesgo</p>
                     </div>
                     <div class="feature-card">
-                        <h4>📋 Auditoría Completa</h4>
-                        <p>Registro detallado de todos los eventos de seguridad</p>
+                        <h4>📊 Auditoría Completa</h4>
+                        <p>Registro de todos los eventos con exportación CSV/JSON</p>
                     </div>
                     <div class="feature-card">
-                        <h4>📈 Dashboard con Métricas</h4>
-                        <p>Visualización de estadísticas en tiempo real</p>
+                        <h4>🌍 Detección Geográfica</h4>
+                        <p>Análisis de ubicación y detección de anomalías geográficas</p>
                     </div>
                 </div>
             </div>
@@ -359,34 +364,31 @@
             <div class="section">
                 <h2>🏗️ Arquitectura del Sistema</h2>
                 <div class="architecture">
-┌─────────────────────────────────────────────────────────┐
-│                NGINX (Reverse Proxy)                    │
-│                HTTPS + Certificados SSL                 │
-└────────────────┬────────────────────────────────────────┘
-                 │
-        ┌────────┴────────┐
-        │                 │
-┌───────▼──────┐  ┌───────▼──────────────────────────┐
-│   Frontend   │  │          Backend                 │
-│   React      │  │          FastAPI                 │
-│   (Port 3000)│  │          (Port 8000)             │
-│              │  │                                   │
-│  Components: │  │  • Autenticación FIDO2           │
-│  - Login     │  │  • Motor evaluación riesgo       │
-│  - Dashboard │  │  • Políticas seguridad           │
-│  - Admin     │  │  • Auditoría                     │
-│  - Step-up   │  │  • APIs RESTful                  │
-└──────────────┘  └──────────┬───────────────────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │   PostgreSQL     │
-                    │   (Port 5432)    │
-                    │                  │
-                    │  • Usuarios      │
-                    │  • Passkeys      │
-                    │  • Políticas     │
-                    │  • Eventos       │
-                    └──────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                  RENDER.COM (Cloud)                  │
+│                                                      │
+│  ┌────────────────────┐    ┌─────────────────────┐ │
+│  │   Frontend (React) │───▶│  Backend (FastAPI)  │ │
+│  │   Web Service      │    │   Web Service       │ │
+│  │   Build: npm       │    │   Python 3.11       │ │
+│  └────────────────────┘    └──────────┬──────────┘ │
+│                                       │             │
+│                            ┌──────────▼──────────┐  │
+│                            │  PostgreSQL 17      │  │
+│                            │  Managed Database   │  │
+│                            │                     │  │
+│                            │  • Usuarios         │  │
+│                            │  • Passkeys         │  │
+│                            │  • Políticas        │  │
+│                            │  • Eventos          │  │
+│                            └─────────────────────┘  │
+└──────────────────────────────────────────────────────┘
+                           │
+                   ┌───────▼───────┐
+                   │    GitHub     │
+                   │   Repository  │
+                   │  Auto-Deploy  │
+                   └───────────────┘
                 </div>
             </div>
 
@@ -397,95 +399,114 @@
                     <div class="tech-category">
                         <h4>Backend</h4>
                         <ul>
-                            <li>Python 3.10</li>
+                            <li>Python 3.11</li>
                             <li>FastAPI</li>
                             <li>SQLAlchemy (ORM)</li>
-                            <li>PostgreSQL 14</li>
+                            <li>PostgreSQL 17</li>
                             <li>WebAuthn (py_webauthn)</li>
                             <li>JWT (python-jose)</li>
-                            <li>Uvicorn</li>
+                            <li>GeoIP2</li>
                         </ul>
                     </div>
                     <div class="tech-category">
                         <h4>Frontend</h4>
                         <ul>
                             <li>React 18</li>
-                            <li>React Router</li>
+                            <li>React Router v6</li>
                             <li>Axios</li>
-                            <li>CSS3</li>
+                            <li>CSS3 Moderno</li>
                         </ul>
                     </div>
                     <div class="tech-category">
                         <h4>Infraestructura</h4>
                         <ul>
-                            <li>Docker</li>
-                            <li>Docker Compose</li>
-                            <li>NGINX</li>
-                            <li>SSL/TLS</li>
+                            <li>Render.com (Hosting)</li>
+                            <li>GitHub (CI/CD)</li>
+                            <li>PostgreSQL Managed</li>
+                            <li>SSL/TLS Automático</li>
                         </ul>
                     </div>
                 </div>
             </div>
 
-            <!-- INSTALACIÓN -->
+            <!-- DESPLIEGUE -->
             <div class="section">
-                <h2>🚀 Instalación</h2>
-                
-                <h3>Requisitos Previos</h3>
-                <ul class="checklist">
-                    <li>Docker Desktop (Windows/Mac) o Docker Engine (Linux)</li>
-                    <li>Docker Compose v2.0+</li>
-                    <li>Puertos 80, 443, 3000, 5432, 8000 disponibles</li>
-                    <li>Navegador compatible con WebAuthn (Chrome 67+, Firefox 60+, Safari 13+)</li>
-                </ul>
+                <h2>🌐 Despliegue en Producción</h2>
+                <div class="alert info">
+                    <strong>🚀 Deployed on Render.com</strong><br>
+                    El proyecto se despliega automáticamente desde GitHub a Render.com con cada push a la rama <code>main</code>.
+                </div>
 
-                <h3>Pasos de Instalación</h3>
+                <h3>Flujo de Despliegue</h3>
                 <ol class="steps">
                     <li>
-                        <strong>Clonar o descargar el repositorio</strong>
-                        <div class="code-block">
-cd Prototipo_TFG
-                        </div>
+                        <strong>Commit & Push a GitHub</strong>
+                        <p>Los cambios se suben a la rama <code>main</code></p>
                     </li>
                     <li>
-                        <strong>Levantar con Docker</strong>
-                        <div class="code-block">
-# Windows (PowerShell)
-docker-compose up -d
-
-# Linux/Mac
-docker-compose up -d
-                        </div>
+                        <strong>Render detecta cambios</strong>
+                        <p>Webhook automático inicia el proceso de build</p>
                     </li>
                     <li>
-                        <strong>Verificar que estén corriendo</strong>
-                        <div class="code-block">
-docker-compose ps
-
-# Resultado esperado:
-# NAME            STATUS
-# auth_backend    Up
-# auth_frontend   Up
-# auth_nginx      Up
-# auth_postgres   Up (healthy)
-                        </div>
+                        <strong>Build del Frontend</strong>
+                        <p><code>npm install</code> → <code>npm run build</code> → Deploy estático</p>
                     </li>
                     <li>
-                        <strong>Acceder al sistema</strong>
-                        <p>Abrir navegador en: <span class="command">https://localhost</span></p>
-                        <div class="alert">
-                            <strong>Nota:</strong> El navegador mostrará advertencia de certificado autofirmado. Click en "Avanzado" → "Continuar".
-                        </div>
+                        <strong>Deploy del Backend</strong>
+                        <p><code>pip install -r requirements.txt</code> → <code>uvicorn app.main:app</code></p>
+                    </li>
+                    <li>
+                        <strong>Aplicación Live</strong>
+                        <p>PostgreSQL persistente + SSL/TLS automático</p>
                     </li>
                 </ol>
             </div>
 
-            <!-- USUARIOS DE PRUEBA -->
+            <!-- INSTALACIÓN LOCAL -->
             <div class="section">
-                <h2>👤 Usuario de Prueba</h2>
-                <div class="info-box">
-                    <p><strong>Email:</strong> <span class="command">demo@prototipo.local</span></p>
-                    <p>Este usuario ya está registrado. En el primer acceso necesitarás registrar una Passkey nueva con tu dispositivo biométrico.</p>
+                <h2>🚀 Instalación Local (Desarrollo)</h2>
+                
+                <h3>Requisitos Previos</h3>
+                <ul class="checklist">
+                    <li>Python 3.11+</li>
+                    <li>Node.js 18+ y npm</li>
+                    <li>PostgreSQL 14+ (local o remoto)</li>
+                    <li>Navegador compatible con WebAuthn (Chrome 67+, Firefox 60+, Safari 13+)</li>
+                </ul>
+
+                <h3>Configuración del Backend</h3>
+                <div class="code-block">
+cd backend
+
+# Crear entorno virtual
+python -m venv venv
+
+# Activar (Windows)
+venv\Scripts\activate
+
+# Instalar dependencias
+pip install -r requirements.txt
+
+# Ejecutar servidor
+python -m app.main
+                </div>
+
+                <h3>Configuración del Frontend</h3>
+                <div class="code-block">
+cd frontend
+
+# Instalar dependencias
+npm install
+
+# Ejecutar servidor de desarrollo
+npm start
+                </div>
+
+                <div class="alert success">
+                    <strong>✅ Aplicación corriendo:</strong><br>
+                    Frontend: <code>http://localhost:3000</code><br>
+                    Backend: <code>http://localhost:8000</code><br>
+                    Docs API: <code>http://localhost:8000/docs</code>
                 </div>
             </div>
 
@@ -508,86 +529,185 @@ docker-compose ps
                             <td>Enrolar Passkey</td>
                             <td><span class="badge success">✅ Funcional</span></td>
                             <td>100%</td>
-                            <td>Registro de credencial FIDO2</td>
+                            <td>Registro de credencial FIDO2 con validación completa</td>
                         </tr>
                         <tr>
                             <td>UC-02</td>
                             <td>Login Passwordless</td>
                             <td><span class="badge success">✅ Funcional</span></td>
                             <td>100%</td>
-                            <td>Autenticación sin contraseña</td>
+                            <td>Autenticación sin contraseña con evaluación de riesgo</td>
                         </tr>
                         <tr>
                             <td>UC-03</td>
                             <td>Verificación Continua</td>
                             <td><span class="badge success">✅ Funcional</span></td>
-                            <td>75%</td>
-                            <td>Evaluación de riesgo en tiempo real</td>
+                            <td>100%</td>
+                            <td>Motor de riesgo analiza cada acceso en tiempo real</td>
                         </tr>
                         <tr>
                             <td>UC-04</td>
                             <td>Step-up Authentication</td>
-                            <td><span class="badge warning">⚠️ Implementado</span></td>
-                            <td>90%</td>
-                            <td>Autenticación adaptativa por riesgo</td>
+                            <td><span class="badge success">✅ Funcional</span></td>
+                            <td>100%</td>
+                            <td>Autenticación adaptativa por nivel de riesgo</td>
                         </tr>
                         <tr>
                             <td>UC-05</td>
                             <td>Administrar Políticas</td>
                             <td><span class="badge success">✅ Funcional</span></td>
                             <td>100%</td>
-                            <td>CRUD de políticas de seguridad</td>
+                            <td>CRUD completo de políticas con condiciones avanzadas</td>
                         </tr>
                         <tr>
                             <td>UC-06</td>
                             <td>Auditoría de Eventos</td>
                             <td><span class="badge success">✅ Funcional</span></td>
-                            <td>70%</td>
-                            <td>Registro y visualización de eventos</td>
+                            <td>100%</td>
+                            <td>Registro completo con exportación CSV/JSON</td>
+                        </tr>
+                        <tr>
+                            <td>UC-07</td>
+                            <td>Detección Geográfica</td>
+                            <td><span class="badge success">✅ Funcional</span></td>
+                            <td>100%</td>
+                            <td>Análisis de ubicación y anomalías geográficas</td>
+                        </tr>
+                        <tr>
+                            <td>UC-08</td>
+                            <td>Gestión de Passkeys</td>
+                            <td><span class="badge success">✅ Funcional</span></td>
+                            <td>100%</td>
+                            <td>Renombrar y revocar credenciales</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- MOTOR DE RIESGO -->
+            <div class="section">
+                <h2>🔐 Motor de Evaluación de Riesgo</h2>
+                
+                <h3>Factores Analizados</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Factor</th>
+                            <th>Peso</th>
+                            <th>Descripción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Nueva ubicación geográfica</td>
+                            <td>30 pts</td>
+                            <td>IP desde país/ciudad no vista antes</td>
+                        </tr>
+                        <tr>
+                            <td>Fuera del horario laboral</td>
+                            <td>15 pts</td>
+                            <td>Acceso fuera de 9:00-18:00</td>
+                        </tr>
+                        <tr>
+                            <td>Múltiples intentos fallidos</td>
+                            <td>25 pts</td>
+                            <td>3+ fallos en última hora</td>
+                        </tr>
+                        <tr>
+                            <td>Dispositivo no reconocido</td>
+                            <td>20 pts</td>
+                            <td>User-Agent nuevo</td>
+                        </tr>
+                        <tr>
+                            <td>Velocidad imposible</td>
+                            <td>35 pts</td>
+                            <td>Cambio geográfico físicamente imposible</td>
+                        </tr>
+                        <tr>
+                            <td>IP sospechosa</td>
+                            <td>40 pts</td>
+                            <td>IP en lista negra o VPN/Proxy</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Políticas por Defecto</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>❌ High Risk Deny</h4>
+                        <p><strong>Score ≥ 75</strong><br>Denegar acceso automáticamente</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>⚠️ Medium Risk Step-up</h4>
+                        <p><strong>Score 40-74</strong><br>Requerir verificación adicional</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>✅ Low Risk Allow</h4>
+                        <p><strong>Score ≤ 39</strong><br>Permitir acceso directo</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>🌍 Foreign Country</h4>
+                        <p><strong>IP fuera de Argentina</strong><br>Step-up obligatorio</p>
+                    </div>
+                </div>
             </div>
 
             <!-- USO DEL SISTEMA -->
             <div class="section">
                 <h2>🎮 Uso del Sistema</h2>
                 
-                <h3>1. Registro de Passkey</h3>
-                <p>URL: <span class="command">https://localhost/enroll</span></p>
-                <ul>
-                    <li>Ingresar email</li>
+                <h3>1. Registro de Usuario y Passkey</h3>
+                <p>Ruta: <span class="command">/enroll</span></p>
+                <ol class="steps">
+                    <li>Ingresar email del usuario</li>
                     <li>Click en "Registrar Passkey"</li>
-                    <li>Usar huella digital, Face ID o PIN del dispositivo</li>
-                </ul>
+                    <li>Autenticar con biométrico (huella, Face ID, Windows Hello)</li>
+                    <li>Sistema crea usuario y registra credencial FIDO2</li>
+                </ol>
 
                 <h3>2. Inicio de Sesión</h3>
-                <p>URL: <span class="command">https://localhost/login</span></p>
-                <ul>
+                <p>Ruta: <span class="command">/login</span></p>
+                <ol class="steps">
                     <li>Ingresar email</li>
-                    <li>Click en "Iniciar Sesión"</li>
-                    <li>Autenticar con dispositivo biométrico</li>
-                    <li>Acceso al Dashboard</li>
-                </ul>
+                    <li>Click en "Iniciar Sesión con Passkey"</li>
+                    <li>Autenticar con biométrico</li>
+                    <li>
+                        <strong>Evaluación automática de riesgo:</strong>
+                        <ul>
+                            <li>Riesgo bajo (0-39): Acceso directo ✅</li>
+                            <li>Riesgo medio (40-74): Step-up requerido ⚠️</li>
+                            <li>Riesgo alto (75-100): Acceso denegado ❌</li>
+                        </ul>
+                    </li>
+                </ol>
 
-                <h3>3. Panel de Administración</h3>
-                <p>URL: <span class="command">https://localhost/admin</span></p>
+                <h3>3. Dashboard del Usuario</h3>
+                <p>Ruta: <span class="command">/dashboard</span></p>
                 <div class="feature-grid">
                     <div class="feature-card">
-                        <h4>📝 Crear Política</h4>
-                        <p>Define nuevas reglas de acceso con condiciones y acciones personalizadas</p>
+                        <h4>🔑 Mis Passkeys</h4>
+                        <p>Ver, renombrar y revocar credenciales</p>
                     </div>
                     <div class="feature-card">
-                        <h4>✏️ Editar Política</h4>
-                        <p>Modifica políticas existentes y ajusta umbrales de riesgo</p>
+                        <h4>📋 Historial</h4>
+                        <p>Eventos de autenticación con geolocalización</p>
                     </div>
                     <div class="feature-card">
-                        <h4>🗑️ Eliminar Política</h4>
-                        <p>Remueve políticas obsoletas del sistema</p>
+                        <h4>📈 Estadísticas</h4>
+                        <p>Métricas de uso y seguridad</p>
+                    </div>
+                </div>
+
+                <h3>4. Panel de Administración</h3>
+                <p>Ruta: <span class="command">/admin</span></p>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>🔒 Políticas de Acceso</h4>
+                        <p>Crear, editar, eliminar y activar/desactivar políticas</p>
                     </div>
                     <div class="feature-card">
-                        <h4>🔄 Activar/Desactivar</h4>
-                        <p>Toggle rápido para habilitar o deshabilitar políticas</p>
+                        <h4>📊 Auditoría y Reportes</h4>
+                        <p>Visualización y exportación de eventos (CSV/JSON)</p>
                     </div>
                 </div>
             </div>
@@ -596,52 +716,111 @@ docker-compose ps
             <div class="section">
                 <h2>📚 Documentación de API</h2>
                 <div class="alert info">
-                    <strong>Swagger UI disponible en:</strong> <span class="command">http://localhost:8000/docs</span>
+                    <strong>Swagger UI disponible en:</strong> <span class="command">/docs</span>
                 </div>
 
                 <h3>Principales Endpoints</h3>
                 <div class="code-block">
 # Autenticación
-POST /auth/register/begin       - Iniciar registro
+POST /auth/register/begin       - Iniciar registro de passkey
 POST /auth/register/complete    - Completar registro
 POST /auth/login/begin          - Iniciar login
-POST /auth/login/complete       - Completar login
-POST /auth/stepup/verify        - Verificar step-up
+POST /auth/login/complete       - Completar login + evaluación riesgo
+POST /auth/stepup/verify        - Verificar step-up authentication
+POST /auth/refresh              - Renovar tokens JWT
 
 # Administración
-GET    /admin/policies          - Listar políticas
-POST   /admin/policies          - Crear política
+GET    /admin/policies          - Listar todas las políticas
+POST   /admin/policies          - Crear nueva política
 PUT    /admin/policies/{id}     - Actualizar política
 DELETE /admin/policies/{id}     - Eliminar política
+PUT    /admin/policies/{id}/toggle - Activar/desactivar
 
 # Auditoría
-GET /audit/events               - Listar eventos
-GET /audit/stats                - Estadísticas
+GET /audit/events               - Listar eventos de auditoría
+GET /audit/stats                - Estadísticas consolidadas
+GET /audit/export               - Exportar eventos (CSV/JSON)
+
+# Passkeys
+GET    /passkeys/{email}        - Listar passkeys del usuario
+PUT    /passkeys/{id}/rename    - Renombrar passkey
+DELETE /passkeys/{id}           - Revocar passkey
                 </div>
+            </div>
+
+            <!-- SEGURIDAD -->
+            <div class="section">
+                <h2>🔒 Consideraciones de Seguridad</h2>
+                
+                <h3>✅ Implementado</h3>
+                <ul class="checklist">
+                    <li>Autenticación sin contraseñas (resistente a phishing)</li>
+                    <li>Claves criptográficas en hardware seguro (FIDO2)</li>
+                    <li>Tokens JWT con expiración (60 minutos)</li>
+                    <li>CORS configurado correctamente</li>
+                    <li>Evaluación de riesgo en cada acceso</li>
+                    <li>Auditoría completa de eventos</li>
+                    <li>HTTPS obligatorio (Render.com)</li>
+                    <li>Detección de anomalías geográficas</li>
+                    <li>Rate limiting en endpoints críticos</li>
+                </ul>
             </div>
 
             <!-- CHECKLIST -->
             <div class="section">
-                <h2>✅ Checklist de Instalación Exitosa</h2>
+                <h2>✅ Checklist de Verificación</h2>
+                
+                <h3>Instalación Local</h3>
                 <ul class="checklist">
-                    <li>Docker Desktop instalado y corriendo</li>
-                    <li>Todos los puertos disponibles (80, 443, 3000, 5432, 8000)</li>
-                    <li><code>docker-compose up -d</code> ejecutado sin errores</li>
-                    <li>Todos los servicios "Up" en <code>docker-compose ps</code></li>
-                    <li><code>https://localhost</code> accesible en el navegador</li>
-                    <li>Usuario demo puede hacer login con passkey</li>
-                    <li>Panel de administración accesible en <code>/admin</code></li>
-                    <li>Swagger docs accesible en <code>http://localhost:8000/docs</code></li>
+                    <li>Python 3.11+ instalado</li>
+                    <li>Node.js 18+ y npm instalados</li>
+                    <li>PostgreSQL 14+ corriendo</li>
+                    <li>Variables de entorno configuradas</li>
+                    <li>Backend corriendo en localhost:8000</li>
+                    <li>Frontend corriendo en localhost:3000</li>
+                    <li>Swagger docs accesible en /docs</li>
                 </ul>
+
+                <h3>Funcionalidad</h3>
+                <ul class="checklist">
+                    <li>Registro de passkey funciona</li>
+                    <li>Login con passkey exitoso</li>
+                    <li>Evaluación de riesgo calculada</li>
+                    <li>Step-up se dispara correctamente</li>
+                    <li>Dashboard muestra información</li>
+                    <li>Panel de admin accesible</li>
+                    <li>Políticas CRUD funcional</li>
+                    <li>Exportación de reportes funciona</li>
+                </ul>
+            </div>
+
+            <!-- REFERENCIAS -->
+            <div class="section">
+                <h2>📖 Referencias</h2>
+                <div class="info-box">
+                    <p><strong>Estándares:</strong></p>
+                    <ul>
+                        <li>FIDO Alliance: <a href="https://fidoalliance.org/" target="_blank">https://fidoalliance.org/</a></li>
+                        <li>WebAuthn W3C: <a href="https://www.w3.org/TR/webauthn-2/" target="_blank">https://www.w3.org/TR/webauthn-2/</a></li>
+                        <li>Zero Trust NIST: <a href="https://www.nist.gov/publications/zero-trust-architecture" target="_blank">NIST SP 800-207</a></li>
+                    </ul>
+                    <p><strong>Frameworks:</strong></p>
+                    <ul>
+                        <li>FastAPI: <a href="https://fastapi.tiangolo.com/" target="_blank">https://fastapi.tiangolo.com/</a></li>
+                        <li>React: <a href="https://react.dev/" target="_blank">https://react.dev/</a></li>
+                        <li>Render: <a href="https://render.com/docs" target="_blank">https://render.com/docs</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
 
         <div class="footer">
-            <h3>🎉 ¡Sistema listo para usar y demostrar!</h3>
+            <h3>🎉 Sistema listo para demostración y entrega final del TFG</h3>
             <p style="margin-top: 20px;">
                 <strong>Autor:</strong> Zuy, Ariel Hernán<br>
                 <strong>Universidad:</strong> Universidad Siglo 21<br>
                 <strong>Legajo:</strong> VLSI002384<br>
+                <strong>Carrera:</strong> Licenciatura en Seguridad Informática<br>
                 <strong>Año:</strong> 2025
             </p>
         </div>
