@@ -112,18 +112,29 @@ class PolicyEngine:
                 return False
             logger.info(f"[POLICY ENGINE]   ✅ Score {risk_score} <= {max_score} - Cumple")
         
-        # NUEVA CONDICIÓN: allowed_countries
+        # ✅ CORRECCIÓN: allowed_countries con lógica diferenciada
         if 'allowed_countries' in conditions:
             allowed = conditions['allowed_countries']
             location = context.get('location', {})
             current_country = location.get('country', 'Unknown')
-            logger.info(f"[POLICY ENGINE]   Verificando país permitido: {current_country} en {allowed}")
-            if current_country not in allowed:
-                logger.info(f"[POLICY ENGINE]   ❌ País {current_country} no está en la lista permitida - NO cumple")
-                return False
-            logger.info(f"[POLICY ENGINE]   ✅ País {current_country} permitido - Cumple")
+            logger.info(f"[POLICY ENGINE]   Verificando país: {current_country} | Lista permitida: {allowed}")
+            
+            is_allowed_country = current_country in allowed
+            
+            # Si la acción es 'allow', solo aplica si el país está permitido
+            if policy.action == 'allow':
+                if not is_allowed_country:
+                    logger.info(f"[POLICY ENGINE]   ❌ País {current_country} no permitido para acción 'allow' - NO cumple")
+                    return False
+                logger.info(f"[POLICY ENGINE]   ✅ País {current_country} permitido para acción 'allow' - Cumple")
+            # Si la acción es 'stepup' o 'deny', solo aplica si el país NO está permitido
+            else:
+                if is_allowed_country:
+                    logger.info(f"[POLICY ENGINE]   ✅ País {current_country} en lista permitida - política NO aplica (skip)")
+                    return False
+                logger.info(f"[POLICY ENGINE]   ❌ País {current_country} NO en lista permitida - política APLICA (stepup/deny)")
         
-        # NUEVA CONDICIÓN: blocked_countries
+        # CONDICIÓN: blocked_countries
         if 'blocked_countries' in conditions:
             blocked = conditions['blocked_countries']
             location = context.get('location', {})
@@ -152,13 +163,23 @@ class PolicyEngine:
                 return False
             logger.info(f"[POLICY ENGINE]   ✅ Dispositivo permitido - Cumple")
         
+        # ✅ CORRECCIÓN: business_hours_only con lógica diferenciada
         if 'business_hours_only' in conditions and conditions['business_hours_only']:
             is_business_hours = context.get('is_business_hours', False)
-            logger.info(f"[POLICY ENGINE]   Verificando horario laboral requerido: {is_business_hours}")
-            if not is_business_hours:
-                logger.info(f"[POLICY ENGINE]   ❌ Fuera de horario laboral - NO cumple")
-                return False
-            logger.info(f"[POLICY ENGINE]   ✅ En horario laboral - Cumple")
+            logger.info(f"[POLICY ENGINE]   Verificando horario laboral: {is_business_hours}")
+            
+            # Si la acción es 'allow', solo aplica durante horario laboral
+            if policy.action == 'allow':
+                if not is_business_hours:
+                    logger.info(f"[POLICY ENGINE]   ❌ Fuera de horario laboral - política 'allow' NO aplica")
+                    return False
+                logger.info(f"[POLICY ENGINE]   ✅ En horario laboral - política 'allow' aplica")
+            # Si la acción es 'stepup' o 'deny', solo aplica fuera de horario laboral
+            else:
+                if is_business_hours:
+                    logger.info(f"[POLICY ENGINE]   ✅ En horario laboral - política stepup/deny NO aplica (skip)")
+                    return False
+                logger.info(f"[POLICY ENGINE]   ❌ Fuera de horario laboral - política APLICA (stepup/deny)")
         
         logger.info(f"[POLICY ENGINE]   ✅ TODAS las condiciones cumplen - MATCH!")
         return True

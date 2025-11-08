@@ -84,6 +84,13 @@ class RiskEngine:
         
         location = self._get_location_from_ip(ip_address)
         
+        # ✅ CORRECCIÓN: Calcular si es horario laboral
+        current_time = datetime.utcnow()
+        is_business_hours = (
+            self.business_hours_start <= current_time.time() <= self.business_hours_end
+            and current_time.weekday() < 5  # Lunes a Viernes
+        )
+        
         return {
             'user_id': user.id,
             'ip_address': ip_address,
@@ -92,7 +99,8 @@ class RiskEngine:
             'os': ua.os.family,
             'device_type': 'mobile' if ua.is_mobile else 'desktop',
             'location': location,
-            'timestamp': datetime.utcnow()
+            'timestamp': current_time,
+            'is_business_hours': is_business_hours  # ✅ NUEVO: agregado al contexto
         }
     
     def _evaluate_device_risk(
