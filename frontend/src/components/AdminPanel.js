@@ -12,14 +12,6 @@ function AdminPanel() {
   const [activeTab, setActiveTab] = useState('policies'); // Estado para tabs
   const navigate = useNavigate();
 
-  // Función para cerrar sesión
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    navigate('/login');
-  };
-
   // Formulario
   const [formData, setFormData] = useState({
     name: '',
@@ -363,12 +355,6 @@ function AdminPanel() {
             <h2>⚙️ Panel de Administración</h2>
             <p className="subtitle">Gestión de políticas de acceso y seguridad</p>
           </div>
-          <button 
-            className="btn-secondary" 
-            onClick={handleLogout}
-          >
-            🚪 Cerrar sesión
-          </button>
         </div>
 
         {/* Tabs de navegación */}
