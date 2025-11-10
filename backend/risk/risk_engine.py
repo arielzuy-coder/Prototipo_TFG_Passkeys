@@ -6,6 +6,7 @@ import user_agents
 from decimal import Decimal
 import logging
 import requests
+import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,12 @@ class RiskEngine:
             'velocity': 0.10
         }
         
+        # Horario laboral: 8:00 AM a 6:00 PM (Buenos Aires)
         self.business_hours_start = time(8, 0)
         self.business_hours_end = time(18, 0)
+        
+        # Zona horaria de Buenos Aires
+        self.timezone = pytz.timezone('America/Argentina/Buenos_Aires')
     
     def evaluate_risk(
         self,
@@ -84,12 +89,19 @@ class RiskEngine:
         
         location = self._get_location_from_ip(ip_address)
         
-        # ✅ CORRECCIÓN: Calcular si es horario laboral
-        current_time = datetime.utcnow()
+        # ✅ Usar hora de Buenos Aires en lugar de UTC
+        utc_now = datetime.now(pytz.utc)
+        current_time = utc_now.astimezone(self.timezone)
+        
+        # ✅ Calcular si es horario laboral (Buenos Aires)
         is_business_hours = (
             self.business_hours_start <= current_time.time() <= self.business_hours_end
             and current_time.weekday() < 5  # Lunes a Viernes
         )
+        
+        logger.info(f"[RISK ENGINE] Hora UTC: {utc_now.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[RISK ENGINE] Hora Buenos Aires: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"[RISK ENGINE] Es horario laboral: {is_business_hours}")
         
         return {
             'user_id': user.id,
@@ -227,10 +239,15 @@ class RiskEngine:
     ) -> Dict[str, Any]:
         """Evalúa intentos fallidos recientes."""
         
+        # Usar hora actual de Buenos Aires
+        utc_now = datetime.now(pytz.utc)
+        current_time_ba = utc_now.astimezone(self.timezone)
+        one_hour_ago = current_time_ba - timedelta(hours=1)
+        
         recent_failures = db.query(AuditEvent).filter(
             AuditEvent.user_id == user.id,
             AuditEvent.event_type == 'auth_failed',
-            AuditEvent.timestamp >= datetime.utcnow() - timedelta(hours=1)
+            AuditEvent.timestamp >= one_hour_ago.replace(tzinfo=None)  # Comparar sin timezone
         ).count()
         
         if recent_failures == 0:
@@ -256,10 +273,15 @@ class RiskEngine:
     ) -> Dict[str, Any]:
         """Evalúa la velocidad de intentos de autenticación."""
         
+        # Usar hora actual de Buenos Aires
+        utc_now = datetime.now(pytz.utc)
+        current_time_ba = utc_now.astimezone(self.timezone)
+        five_minutes_ago = current_time_ba - timedelta(minutes=5)
+        
         recent_attempts = db.query(AuditEvent).filter(
             AuditEvent.user_id == user.id,
             AuditEvent.event_type.in_(['auth_success', 'auth_failed']),
-            AuditEvent.timestamp >= datetime.utcnow() - timedelta(minutes=5)
+            AuditEvent.timestamp >= five_minutes_ago.replace(tzinfo=None)  # Comparar sin timezone
         ).count()
         
         if recent_attempts <= 2:
