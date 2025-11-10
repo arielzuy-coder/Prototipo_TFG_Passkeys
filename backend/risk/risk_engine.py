@@ -20,9 +20,9 @@ class RiskEngine:
             'velocity': 0.10
         }
         
-        # Horario laboral: 8:00 AM a 6:00 PM (Buenos Aires)
+        # Horario laboral: 8:00 AM a 7:00 PM (Buenos Aires)
         self.business_hours_start = time(8, 0)
-        self.business_hours_end = time(18, 0)
+        self.business_hours_end = time(19, 0)
         
         # Zona horaria de Buenos Aires
         self.timezone = pytz.timezone('America/Argentina/Buenos_Aires')
@@ -217,7 +217,7 @@ class RiskEngine:
             return {
                 'score': 0,
                 'is_business_hours': True,
-                'message': "Horario laboral (Lun-Vie 8-18hs)"
+                'message': "Horario laboral (Lun-Vie 8-19hs)"
             }
         elif is_weekday:
             return {
