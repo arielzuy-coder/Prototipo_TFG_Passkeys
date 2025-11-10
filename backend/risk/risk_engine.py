@@ -159,7 +159,9 @@ class RiskEngine:
         
         current_location = context.get('location', {})
         current_country = current_location.get('country', 'Unknown')
+        current_country_name = current_location.get('country_name', 'Unknown')
         current_display = current_location.get('display', 'Unknown')
+        current_ip = context.get('ip_address', 'Unknown')
         
         logger.info(f"[RISK ENGINE] Ubicación actual: {current_display} (País: {current_country})")
         
@@ -172,7 +174,7 @@ class RiskEngine:
                 'score': 5,  # Riesgo muy bajo
                 'known': True,
                 'country': current_country,
-                'message': f"Ubicación confiable: {current_display} 🇦🇷"
+                'message': f"{current_display} (IP: {current_ip}, {current_country_name})"
             }
         
         # Obtener ubicaciones conocidas del usuario
@@ -192,7 +194,7 @@ class RiskEngine:
                 'score': 20,
                 'known': False,
                 'country': current_country,
-                'message': f"Primera ubicación registrada: {current_display}"
+                'message': f"Primera ubicación: {current_display} (IP: {current_ip}, {current_country_name})"
             }
         
         # Verificar si la ubicación actual está en el historial
@@ -202,7 +204,7 @@ class RiskEngine:
                 'score': 0,
                 'known': True,
                 'country': current_country,
-                'message': f"Ubicación conocida: {current_display}"
+                'message': f"Ubicación conocida: {current_display} (IP: {current_ip}, {current_country_name})"
             }
         else:
             logger.info(f"[RISK ENGINE] ❌ Ubicación NUEVA: {current_display}")
@@ -211,7 +213,7 @@ class RiskEngine:
                 'score': 35,
                 'known': False,
                 'country': current_country,
-                'message': f"Nueva ubicación: {current_display}"
+                'message': f"Nueva ubicación: {current_display} (IP: {current_ip}, {current_country_name})"
             }
     
     def _evaluate_time_risk(self, context: Dict) -> Dict[str, Any]:
