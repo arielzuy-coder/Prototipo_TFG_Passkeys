@@ -163,6 +163,18 @@ class RiskEngine:
         
         logger.info(f"[RISK ENGINE] Ubicación actual: {current_display} (País: {current_country})")
         
+        # ✅ NUEVO: Países confiables (bajo riesgo automático)
+        trusted_countries = ['AR']  # Argentina
+        
+        if current_country in trusted_countries:
+            logger.info(f"[RISK ENGINE] ✅ País CONFIABLE: {current_country}")
+            return {
+                'score': 5,  # Riesgo muy bajo
+                'known': True,
+                'country': current_country,
+                'message': f"Ubicación confiable: {current_display} 🇦🇷"
+            }
+        
         # Obtener ubicaciones conocidas del usuario
         recent_locations = db.query(Device.last_seen_location).filter(
             Device.user_id == user.id,
@@ -221,13 +233,13 @@ class RiskEngine:
             }
         elif is_weekday:
             return {
-                'score': 15,
+                'score': 200,  # 200 × 0.20 = 40 pts → MEDIUM (40-74)
                 'is_business_hours': False,
                 'message': "Fuera de horario laboral"
             }
         else:
             return {
-                'score': 25,
+                'score': 300,  # 300 × 0.20 = 60 pts → MEDIUM (40-74)
                 'is_business_hours': False,
                 'message': "Acceso en fin de semana"
             }
